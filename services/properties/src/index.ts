@@ -3,9 +3,15 @@ import { sql } from 'drizzle-orm';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createDatabase } from './db/client.js';
+import { createHttpLocationsClient } from './locations-client.js';
 
 const config = loadConfig();
 const db = createDatabase(config.DATABASE_URL);
+
+// Wired up here so user story 3 can inject it into its service.
+export const locationsClient = createHttpLocationsClient({
+  baseUrl: config.LOCATIONS_SERVICE_URL,
+});
 
 const app = createApp({
   checkDatabase: async () => {

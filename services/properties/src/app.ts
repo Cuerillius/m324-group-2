@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { DomainError, NotFoundError, ValidationError, ConflictError } from './errors.js';
+import { LocationsServiceUnavailableError } from './locations-client.js';
 
 /**
  * Dependencies the HTTP layer needs. User story 3 extends this type with its
@@ -44,6 +45,10 @@ export function createApp(deps: AppDependencies) {
     }
     if (err instanceof ConflictError) {
       return c.json({ error: { code: err.code, message: err.message } }, 409);
+    }
+    // A dependency being down is not the client's fault, so it maps to 502.
+    if (err instanceof LocationsServiceUnavailableError) {
+      return c.json({ error: { code: err.code, message: err.message } }, 502);
     }
     if (err instanceof DomainError) {
       return c.json({ error: { code: err.code, message: err.message } }, 400);

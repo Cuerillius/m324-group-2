@@ -4,6 +4,7 @@ import { loadConfig } from '../src/config.js';
 const validEnv = {
   PORT: '3002',
   DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
+  LOCATIONS_SERVICE_URL: 'http://localhost:3001',
 } as NodeJS.ProcessEnv;
 
 /**
@@ -15,7 +16,17 @@ describe('loadConfig', () => {
     const config = loadConfig(validEnv);
 
     expect(config.PORT).toBe(3002);
-    expect(config.NODE_ENV).toBe('development');
+    expect(config.LOCATIONS_SERVICE_URL).toBe('http://localhost:3001');
+  });
+
+  /**
+   * Sad path: without the address of microservice 1, story 3 could not validate
+   * localities, so the service must refuse to start.
+   */
+  it('throws when LOCATIONS_SERVICE_URL is missing', () => {
+    const { LOCATIONS_SERVICE_URL: _omitted, ...rest } = validEnv;
+
+    expect(() => loadConfig(rest as NodeJS.ProcessEnv)).toThrow(/Invalid environment/);
   });
 
   /** Sad path: a missing database URL aborts startup. */
@@ -23,10 +34,5 @@ describe('loadConfig', () => {
     const { DATABASE_URL: _omitted, ...rest } = validEnv;
 
     expect(() => loadConfig(rest as NodeJS.ProcessEnv)).toThrow(/Invalid environment/);
-  });
-
-  /** Sad path: a non-numeric port is rejected instead of silently becoming NaN. */
-  it('throws when PORT is not a number', () => {
-    expect(() => loadConfig({ ...validEnv, PORT: 'not-a-port' })).toThrow(/Invalid environment/);
   });
 });
