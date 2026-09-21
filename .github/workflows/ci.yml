@@ -11,8 +11,22 @@ concurrency:
 
 jobs:
   verify:
-    name: Lint, typecheck and unit tests
+    name: Lint, typecheck and tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: m324
+        options: >-
+          --health-cmd "pg_isready -U postgres -d m324"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v7
 
@@ -34,6 +48,30 @@ jobs:
 
       - name: Unit tests
         run: bun run test:coverage
+
+      - name: Initialize database schemas
+        run: bash db/init/01-init.sh
+        env:
+          PGHOST: localhost
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: m324
+          LOCATIONS_DB_PASSWORD: locations
+          PROPERTIES_DB_PASSWORD: properties
+
+      - name: Integration tests — locations
+        working-directory: services/locations
+        run: bun run test:integration
+        env:
+          INTEGRATION: 1
+          DATABASE_URL: postgres://locations_user:locations@localhost:5432/m324
+
+      - name: Integration tests — properties
+        working-directory: services/properties
+        run: bun run test:integration
+        env:
+          INTEGRATION: 1
+          DATABASE_URL: postgres://properties_user:properties@localhost:5432/m324
 
   docker:
     name: Build service images
