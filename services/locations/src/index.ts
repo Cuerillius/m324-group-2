@@ -1,10 +1,21 @@
+import { existsSync } from 'node:fs';
 import { sql } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createDatabase } from './db/client.js';
 
 const config = loadConfig();
 const db = createDatabase(config.DATABASE_URL);
+
+// Pending migrations run before the server listens, so a deploy only passes the
+// health check once the schema matches the code. Render's free plan has no
+// pre-deploy step to do this separately. Nothing to apply until the first user
+// story generates a migration.
+const migrationsFolder = new URL('../drizzle', import.meta.url).pathname;
+if (existsSync(`${migrationsFolder}/meta/_journal.json`)) {
+  await migrate(db, { migrationsFolder, migrationsSchema: 'locations_drizzle' });
+}
 
 const app = createApp({
   version: config.RENDER_GIT_COMMIT,

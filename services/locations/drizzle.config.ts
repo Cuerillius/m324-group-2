@@ -12,6 +12,10 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'postgresql',
   schemaFilter: ['locations'],
+  // Drizzle keeps its bookkeeping in a schema of its own, which it creates
+  // before the first migration creates "locations". The default name "drizzle"
+  // would be claimed by whichever service migrates first.
+  migrations: { schema: 'locations_drizzle' },
   dbCredentials: {
     url,
   },

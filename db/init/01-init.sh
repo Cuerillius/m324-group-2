@@ -1,5 +1,5 @@
 #!/bin/bash
-# Creates one schema and one dedicated role per microservice.
+# Creates one dedicated role per microservice; each service creates its own schema.
 #
 # The course rules require that the properties service never reads locality data
 # straight from the database. We enforce that here instead of relying on
@@ -10,14 +10,11 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-S
     CREATE ROLE locations_user LOGIN PASSWORD '${LOCATIONS_DB_PASSWORD}';
     CREATE ROLE properties_user LOGIN PASSWORD '${PROPERTIES_DB_PASSWORD}';
 
-    CREATE SCHEMA locations AUTHORIZATION locations_user;
-    CREATE SCHEMA properties AUTHORIZATION properties_user;
-
-    -- Nobody gets access to the other service's schema.
-    REVOKE ALL ON SCHEMA locations FROM properties_user;
-    REVOKE ALL ON SCHEMA properties FROM locations_user;
-
-    GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO locations_user, properties_user;
+    -- Each service creates and owns its schema through its own migrations. A
+    -- schema grants nothing to other roles by default, so properties_user can
+    -- never read the locations schema and vice versa. CREATE on the database is
+    -- what lets a service create its schema in the first place.
+    GRANT CONNECT, CREATE ON DATABASE ${POSTGRES_DB} TO locations_user, properties_user;
 
     ALTER ROLE locations_user SET search_path TO locations;
     ALTER ROLE properties_user SET search_path TO properties;
