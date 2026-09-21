@@ -11,9 +11,10 @@ const db = createDatabase(config.DATABASE_URL);
 // Pending migrations run before the server listens, so a deploy only passes the
 // health check once the schema matches the code. Render's free plan has no
 // pre-deploy step to do this separately. Nothing to apply until the first user
-// story generates a migration.
+// story generates a migration; once the folder exists, a missing journal fails
+// startup instead of being skipped.
 const migrationsFolder = new URL('../drizzle', import.meta.url).pathname;
-if (existsSync(`${migrationsFolder}/meta/_journal.json`)) {
+if (existsSync(migrationsFolder)) {
   await migrate(db, { migrationsFolder, migrationsSchema: 'properties_drizzle' });
 }
 

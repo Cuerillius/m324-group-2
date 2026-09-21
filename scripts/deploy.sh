@@ -8,13 +8,19 @@
 set -euo pipefail
 
 target=${1:?Usage: deploy.sh <commit-sha>}
-: "${LOCATIONS_SERVICE_ID:?}" "${PROPERTIES_SERVICE_ID:?}" "${RENDER_API_KEY:?}"
+: "${LOCATIONS_SERVICE_ID:?}" "${PROPERTIES_SERVICE_ID:?}" "${RENDER_API_KEY:?}" \
+  "${LOCATIONS_URL:?}" "${PROPERTIES_URL:?}"
 here=$(dirname "$0")
 
-# The version live right now is where a failed deploy goes back to. Both
-# services always move together, so the locations version stands for both.
-previous=$(curl --silent --max-time 90 "$LOCATIONS_URL/health" | jq -r '.version // empty' || true)
-echo "Currently live: ${previous:-unknown}. Deploying: $target"
+# The commit Render serves right now is where a failed deploy goes back to.
+# Asking Render rather than /health works even while the instance sleeps. Both
+# services always move together, so locations stands for both.
+previous=$(render deploys list "$LOCATIONS_SERVICE_ID" --confirm -o json |
+  jq -r '[.[] | .deploy // . | select(.status == "live")][0].commit.id // empty')
+if [[ -z $previous ]]; then
+  echo "::warning::Render reports no live deploy, a failure cannot be rolled back"
+fi
+echo "Currently live: ${previous:-none}. Deploying: $target"
 
 deploy_all() {
   # Locations first, because properties calls it.

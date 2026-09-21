@@ -13,7 +13,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-S
     -- Each service creates and owns its schema through its own migrations. A
     -- schema grants nothing to other roles by default, so properties_user can
     -- never read the locations schema and vice versa. CREATE on the database is
-    -- what lets a service create its schema in the first place.
+    -- what lets a service create its schema in the first place. It also lets a
+    -- role create any other schema, which we accept: reading another service's
+    -- data stays impossible, and a stray schema would show up in review.
     GRANT CONNECT, CREATE ON DATABASE ${POSTGRES_DB} TO locations_user, properties_user;
 
     ALTER ROLE locations_user SET search_path TO locations;

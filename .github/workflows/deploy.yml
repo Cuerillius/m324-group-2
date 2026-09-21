@@ -31,6 +31,8 @@ jobs:
   deploy:
     name: Deploy to production
     runs-on: ubuntu-latest
+    # Two builds, two smoke tests and possibly a rollback; well above normal.
+    timeout-minutes: 30
     environment:
       name: production
       url: ${{ env.PROPERTIES_URL }}/health
@@ -41,8 +43,10 @@ jobs:
         run: |
           base=https://github.com/render-oss/cli/releases/download/v$RENDER_CLI_VERSION
           zip=cli_${RENDER_CLI_VERSION}_linux_amd64.zip
-          curl -fsSLO "$base/$zip" -O "$base/cli_${RENDER_CLI_VERSION}_SHA256SUMS"
-          grep " $zip\$" "cli_${RENDER_CLI_VERSION}_SHA256SUMS" | sha256sum -c
+          sums=cli_${RENDER_CLI_VERSION}_SHA256SUMS
+          curl -fsSLO "$base/$zip"
+          curl -fsSLO "$base/$sums"
+          grep " $zip\$" "$sums" | sha256sum -c
           unzip -q "$zip" -d render-cli
           install -m 755 "render-cli/cli_v$RENDER_CLI_VERSION" /usr/local/bin/render
 
