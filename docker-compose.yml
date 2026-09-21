@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: m324-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-m324}
+      LOCATIONS_DB_PASSWORD: ${LOCATIONS_DB_PASSWORD:-locations}
+      PROPERTIES_DB_PASSWORD: ${PROPERTIES_DB_PASSWORD:-properties}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-m324}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  locations:
+    build:
+      context: .
+      dockerfile: services/locations/Dockerfile
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgres://locations_user:${LOCATIONS_DB_PASSWORD:-locations}@postgres:5432/${POSTGRES_DB:-m324}
+    ports:
+      - '3001:3001'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "const r = await fetch('http://localhost:3001/health/ready'); process.exit(r.ok ? 0 : 1)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ['app']
+
+  properties:
+    build:
+      context: .
+      dockerfile: services/properties/Dockerfile
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgres://properties_user:${PROPERTIES_DB_PASSWORD:-properties}@postgres:5432/${POSTGRES_DB:-m324}
+      LOCATIONS_SERVICE_URL: http://locations:3001
+    ports:
+      - '3002:3002'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "const r = await fetch('http://localhost:3002/health/ready'); process.exit(r.ok ? 0 : 1)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+      locations:
+        condition: service_healthy
+    profiles: ['app']
+
+volumes:
+  postgres-data:

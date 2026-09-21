@@ -1,0 +1,7 @@
+[test]
+root = "./test"
+coverageReporter = ["text", "lcov"]
+coverageSkipTestFiles = true
+# The entry point and the database client only wire things together and are
+# exercised by the running service, not by unit tests.
+coveragePathIgnorePatterns = ["src/index.ts", "src/db/client.ts"]
