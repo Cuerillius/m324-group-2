@@ -1,0 +1,52 @@
+name: Deploy
+
+# Called by CI after every green push to main (continuous deployment), and
+# runnable by hand with any earlier commit, which is the manual rollback.
+on:
+  workflow_call:
+    inputs:
+      commit:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Full commit SHA to deploy, e.g. an earlier one to roll back to
+        type: string
+        required: true
+
+# Never run two deploys at once, and never cancel one halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  RENDER_CLI_VERSION: 2.28.0
+  LOCATIONS_URL: https://m324-locations.onrender.com
+  PROPERTIES_URL: https://m324-properties.onrender.com
+  LOCATIONS_SERVICE_ID: srv-daodln740ujc73eti5o0
+  PROPERTIES_SERVICE_ID: srv-daodn6qd0e5s73fru6t0
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ env.PROPERTIES_URL }}/health
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the Render CLI
+        run: |
+          base=https://github.com/render-oss/cli/releases/download/v$RENDER_CLI_VERSION
+          zip=cli_${RENDER_CLI_VERSION}_linux_amd64.zip
+          curl -fsSLO "$base/$zip" -O "$base/cli_${RENDER_CLI_VERSION}_SHA256SUMS"
+          grep " $zip\$" "cli_${RENDER_CLI_VERSION}_SHA256SUMS" | sha256sum -c
+          unzip -q "$zip" -d render-cli
+          install -m 755 "render-cli/cli_v$RENDER_CLI_VERSION" /usr/local/bin/render
+
+      - name: Deploy ${{ inputs.commit }}, smoke test, roll back on failure
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: scripts/deploy.sh "${{ inputs.commit }}"
