@@ -21,3 +21,16 @@ const app = createApp({
 
 const server = Bun.serve({ fetch: app.fetch, port: config.PORT });
 console.log(`properties service listening on http://localhost:${server.port}`);
+
+// Docker sends SIGTERM on stop and Ctrl+C sends SIGINT. Finish in-flight
+// requests and close the connection pool so Postgres is not left with
+// dangling connections and the container exits instead of being killed.
+async function shutdown(signal: NodeJS.Signals) {
+  console.log(`properties service received ${signal}, shutting down`);
+  await server.stop();
+  await db.$client.end({ timeout: 5 });
+  process.exit(0);
+}
+
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
