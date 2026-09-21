@@ -7,6 +7,7 @@ const config = loadConfig();
 const db = createDatabase(config.DATABASE_URL);
 
 const app = createApp({
+  version: config.RENDER_GIT_COMMIT,
   checkDatabase: async () => {
     try {
       await db.execute(sql`select 1`);
