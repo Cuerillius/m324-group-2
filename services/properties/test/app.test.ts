@@ -25,7 +25,7 @@ describe('properties app', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       status: 'ok',
-      service: 'properties',
+      service: 'properties Hello World',
       version: 'test',
     });
   });
