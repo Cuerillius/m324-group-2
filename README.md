@@ -136,4 +136,5 @@ Unit tests live in `test/` next to each service and run with `bun test`. They mu
 not touch the network or the database. `test/app.test.ts` and
 `test/locations-client.test.ts` show the pattern.
 
-Integration tests come with the CI task and will run against the Compose stack.
+There are no integration tests yet, and CI runs only the unit tests. They are
+planned with the CI task (#15) and will run against the Compose stack.
