@@ -13,6 +13,7 @@
     "dev": "bun run --filter \"./services/*\" dev",
     "test": "bun run --filter \"./services/*\" test",
     "test:coverage": "bun run --filter \"./services/*\" test:coverage",
+    "test:integration": "bun run --filter \"./services/*\" test:integration",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -35,6 +35,59 @@ jobs:
       - name: Unit tests
         run: bun run test:coverage
 
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: m324
+        options: >-
+          --health-cmd "pg_isready -U postgres -d m324"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Initialize database schemas
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d m324 <<'SQL'
+            CREATE ROLE locations_user LOGIN PASSWORD 'locations';
+            CREATE ROLE properties_user LOGIN PASSWORD 'properties';
+            CREATE SCHEMA locations AUTHORIZATION locations_user;
+            CREATE SCHEMA properties AUTHORIZATION properties_user;
+            REVOKE ALL ON SCHEMA locations FROM properties_user;
+            REVOKE ALL ON SCHEMA properties FROM locations_user;
+            GRANT CONNECT ON DATABASE m324 TO locations_user, properties_user;
+            ALTER ROLE locations_user SET search_path TO locations;
+            ALTER ROLE properties_user SET search_path TO properties;
+          SQL
+
+      - name: Integration tests — locations
+        working-directory: services/locations
+        run: bun test test/integration
+        env:
+          DATABASE_URL: postgres://locations_user:locations@localhost:5432/m324
+
+      - name: Integration tests — properties
+        working-directory: services/properties
+        run: bun test test/integration
+        env:
+          DATABASE_URL: postgres://properties_user:properties@localhost:5432/m324
+
   docker:
     name: Build service images
     runs-on: ubuntu-latest
