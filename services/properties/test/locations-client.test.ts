@@ -84,4 +84,41 @@ describe('httpLocationsClient', () => {
 
     await expect(client.findById('abc')).rejects.toBeInstanceOf(LocationsServiceUnavailableError);
   });
+
+  /**
+   * Sad path: a 200 whose body is not a locality means microservice 1 broke its
+   * contract.
+   *
+   * @expected LocationsServiceUnavailableError, so a malformed locality never
+   *           reaches story 3 disguised as a valid one.
+   */
+  it('throws when the locations service answers with a malformed body', async () => {
+    const fetchFn = mock().mockResolvedValue(
+      new Response(JSON.stringify({ id: 42, name: 'Niederhasli' }), { status: 200 }),
+    );
+
+    const client = createHttpLocationsClient({
+      baseUrl,
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+
+    await expect(client.findById('abc')).rejects.toBeInstanceOf(LocationsServiceUnavailableError);
+  });
+
+  /**
+   * Sad path: a 200 whose body is not JSON at all is treated the same way.
+   *
+   * @expected LocationsServiceUnavailableError rather than a raw SyntaxError,
+   *           which the router would turn into a 500.
+   */
+  it('throws when the locations service answers with a body that is not JSON', async () => {
+    const fetchFn = mock().mockResolvedValue(new Response('<html>oops</html>', { status: 200 }));
+
+    const client = createHttpLocationsClient({
+      baseUrl,
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+
+    await expect(client.findById('abc')).rejects.toBeInstanceOf(LocationsServiceUnavailableError);
+  });
 });

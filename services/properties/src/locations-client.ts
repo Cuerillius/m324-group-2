@@ -1,14 +1,18 @@
+import { z } from 'zod';
 import { DomainError } from './errors.js';
 
 /**
  * A locality as microservice 1 returns it. Only the fields this service needs
- * are declared, so a purely additive change over there cannot break us.
+ * are declared, so a purely additive change over there cannot break us. Zod
+ * strips any extra fields.
  */
-export interface Location {
-  id: string;
-  name: string;
-  postalCode: string;
-}
+const locationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  postalCode: z.string(),
+});
+
+export type Location = z.infer<typeof locationSchema>;
 
 /**
  * The contract user story 3 depends on.
@@ -67,7 +71,15 @@ export function createHttpLocationsClient(options: HttpLocationsClientOptions): 
         );
       }
 
-      return (await response.json()) as Location;
+      // A body that is not a locality means microservice 1 broke its contract,
+      // which is as much an infrastructure failure as a 500.
+      const parsed = locationSchema.safeParse(await response.json().catch(() => undefined));
+      if (!parsed.success) {
+        throw new LocationsServiceUnavailableError(
+          'Locations service answered with an unexpected response body',
+        );
+      }
+      return parsed.data;
     },
   };
 }
