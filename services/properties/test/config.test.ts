@@ -35,4 +35,15 @@ describe('loadConfig', () => {
 
     expect(() => loadConfig(rest as NodeJS.ProcessEnv)).toThrow(/Invalid environment/);
   });
+
+  /**
+   * Happy path: on Render the running commit becomes the version reported by
+   * GET /health, and anywhere else the service still starts, reporting "dev".
+   */
+  it('reads the running commit and defaults it to dev', () => {
+    const config = loadConfig({ ...validEnv, RENDER_GIT_COMMIT: 'e8c7f19' });
+
+    expect(config.RENDER_GIT_COMMIT).toBe('e8c7f19');
+    expect(loadConfig(validEnv).RENDER_GIT_COMMIT).toBe('dev');
+  });
 });

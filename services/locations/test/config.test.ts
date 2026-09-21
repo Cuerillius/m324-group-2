@@ -45,4 +45,21 @@ describe('loadConfig', () => {
       } as NodeJS.ProcessEnv),
     ).toThrow(/Invalid environment configuration/);
   });
+
+  /**
+   * Happy path: on Render the running commit becomes the version reported by
+   * GET /health, and anywhere else the service still starts, reporting "dev".
+   */
+  it('reads the running commit and defaults it to dev', () => {
+    const config = loadConfig({
+      DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
+      RENDER_GIT_COMMIT: 'e8c7f19',
+    } as NodeJS.ProcessEnv);
+
+    expect(config.RENDER_GIT_COMMIT).toBe('e8c7f19');
+    expect(
+      loadConfig({ DATABASE_URL: 'postgres://user:pass@localhost:5432/db' } as NodeJS.ProcessEnv)
+        .RENDER_GIT_COMMIT,
+    ).toBe('dev');
+  });
 });

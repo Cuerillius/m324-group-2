@@ -6,6 +6,8 @@ import { NotFoundError, ValidationError, ConflictError } from './errors.js';
  * their own service, which is how the routes stay free of construction logic.
  */
 export interface AppDependencies {
+  /** Identifies the running build, so a smoke test can tell which one is live. */
+  version: string;
   /** Reports whether the database is reachable. */
   checkDatabase: () => Promise<boolean>;
 }
@@ -20,7 +22,7 @@ export interface AppDependencies {
 export function createApp(deps: AppDependencies) {
   const app = new Hono();
 
-  app.get('/health', (c) => c.json({ status: 'ok', service: 'locations' }));
+  app.get('/health', (c) => c.json({ status: 'ok', service: 'locations', version: deps.version }));
 
   app.get('/health/ready', async (c) => {
     const databaseUp = await deps.checkDatabase();

@@ -12,7 +12,7 @@ if (INTEGRATION && !DATABASE_URL) {
 
 describe.skipIf(!INTEGRATION)('locations health (integration)', () => {
   const db = createDatabase(DATABASE_URL!);
-  const app = createApp({ checkDatabase: createDatabaseCheck(db) });
+  const app = createApp({ version: 'test', checkDatabase: createDatabaseCheck(db) });
 
   afterAll(async () => {
     await db.$client.end({ timeout: 5 });
@@ -21,7 +21,11 @@ describe.skipIf(!INTEGRATION)('locations health (integration)', () => {
   it('GET /health returns liveness', async () => {
     const response = await app.request('/health');
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ status: 'ok', service: 'locations' });
+    await expect(response.json()).resolves.toEqual({
+      status: 'ok',
+      service: 'locations',
+      version: 'test',
+    });
   });
 
   it('GET /health/ready returns ok when database is reachable', async () => {

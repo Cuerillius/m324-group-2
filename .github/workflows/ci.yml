@@ -5,9 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# A newer push to a pull request makes the older run pointless. On main the run
+# may be deploying, and a deploy must never be cancelled halfway.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
@@ -49,7 +51,7 @@ jobs:
       - name: Unit tests
         run: bun run test:coverage
 
-      - name: Initialize database schemas
+      - name: Create database roles
         run: bash db/init/01-init.sh
         env:
           PGHOST: localhost
@@ -58,6 +60,13 @@ jobs:
           POSTGRES_DB: m324
           LOCATIONS_DB_PASSWORD: locations
           PROPERTIES_DB_PASSWORD: properties
+
+      # In production each service's first migration creates its schema as its
+      # own role. There are no migrations yet, so do the same here by hand.
+      - name: Create service schemas as their own roles
+        run: |
+          psql postgres://locations_user:locations@localhost:5432/m324 -c 'CREATE SCHEMA locations'
+          psql postgres://properties_user:properties@localhost:5432/m324 -c 'CREATE SCHEMA properties'
 
       - name: Integration tests — locations
         working-directory: services/locations
@@ -84,3 +93,12 @@ jobs:
 
       - name: Build ${{ matrix.service }} image
         run: docker build -f services/${{ matrix.service }}/Dockerfile -t m324-${{ matrix.service }}:ci .
+
+  deploy:
+    name: Deploy
+    needs: [verify, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      commit: ${{ github.sha }}
+    secrets: inherit

@@ -30,7 +30,7 @@ cp .env.example .env                                           # for Docker Comp
 cp services/locations/.env.example services/locations/.env     # for bun run dev
 cp services/properties/.env.example services/properties/.env   # for bun run dev
 bun install
-bun run db:up       # starts Postgres and creates both schemas and roles
+bun run db:up       # starts Postgres and creates both service roles
 bun run dev         # runs both services with hot reload
 ```
 
@@ -140,7 +140,32 @@ not touch the network or the database. `test/app.test.ts` and
 
 Integration tests live in `test/integration/` and run with `bun run test:integration`.
 They require a real Postgres instance and the `INTEGRATION=1` environment variable
-(plus `DATABASE_URL`). CI spins up a Postgres container, initialises the schemas via
-`db/init/01-init.sh`, and then runs both integration suites with the per-service
+(plus `DATABASE_URL`). CI spins up a Postgres container, creates the roles via
+`db/init/01-init.sh` and each service's schema as that service's role, and then runs both integration suites with the per-service
 credentials. Unit tests (`bun test`) never run the integration suite — they are
 excluded unless `INTEGRATION=1` is set.
+
+## Deployment
+
+Production runs on Render's free tier with Postgres on Neon.
+
+| Environment | Where                                      | How it gets there                                |
+| ----------- | ------------------------------------------ | ------------------------------------------------ |
+| Dev         | your machine, Compose or `bun dev`         | by hand                                          |
+| Production  | `m324-{locations,properties}.onrender.com` | every green push to `main`, through `deploy.yml` |
+
+After CI passes on `main`, `.github/workflows/deploy.yml` deploys that commit of
+both services with the Render CLI, then `scripts/smoke-test.sh` checks that
+`/health` reports the new commit and `/health/ready` answers. If either step
+fails, `scripts/deploy.sh` redeploys the commit that was live before.
+
+To roll back by hand, run the **Deploy** workflow from the Actions tab with the
+commit to go back to. `GET /health` shows which commit is live.
+
+Each service applies its pending Drizzle migrations on startup, before it
+listens. A migration must therefore stay compatible with the previous release,
+because a rollback redeploys old code onto the new schema.
+
+Secrets live in Render (`DATABASE_URL`, `LOCATIONS_SERVICE_URL`) and in the
+GitHub `production` environment (`RENDER_API_KEY`), never in the repository.
+`db/neon-setup.sh` creates the service roles on a fresh Neon database.

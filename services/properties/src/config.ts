@@ -12,6 +12,8 @@ const envSchema = z.object({
   /** Base URL of microservice 1. Story 3 must validate localities over HTTP. */
   LOCATIONS_SERVICE_URL: z.string().url(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /** Commit being run. Render sets this on every deploy; anywhere else it is "dev". */
+  RENDER_GIT_COMMIT: z.string().min(1).default('dev'),
 });
 
 export type Config = z.infer<typeof envSchema>;
