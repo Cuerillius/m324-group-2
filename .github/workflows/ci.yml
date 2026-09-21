@@ -50,29 +50,27 @@ jobs:
         run: bun run test:coverage
 
       - name: Initialize database schemas
-        run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d m324 <<'SQL'
-            CREATE ROLE locations_user LOGIN PASSWORD 'locations';
-            CREATE ROLE properties_user LOGIN PASSWORD 'properties';
-            CREATE SCHEMA locations AUTHORIZATION locations_user;
-            CREATE SCHEMA properties AUTHORIZATION properties_user;
-            REVOKE ALL ON SCHEMA locations FROM properties_user;
-            REVOKE ALL ON SCHEMA properties FROM locations_user;
-            GRANT CONNECT ON DATABASE m324 TO locations_user, properties_user;
-            ALTER ROLE locations_user SET search_path TO locations;
-            ALTER ROLE properties_user SET search_path TO properties;
-          SQL
+        run: bash db/init/01-init.sh
+        env:
+          PGHOST: localhost
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: m324
+          LOCATIONS_DB_PASSWORD: locations
+          PROPERTIES_DB_PASSWORD: properties
 
       - name: Integration tests — locations
         working-directory: services/locations
         run: bun run test:integration
         env:
+          INTEGRATION: 1
           DATABASE_URL: postgres://locations_user:locations@localhost:5432/m324
 
       - name: Integration tests — properties
         working-directory: services/properties
         run: bun run test:integration
         env:
+          INTEGRATION: 1
           DATABASE_URL: postgres://properties_user:properties@localhost:5432/m324
 
   docker:

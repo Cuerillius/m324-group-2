@@ -1,3 +1,4 @@
+import { sql as drizzleSql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema.js';
@@ -12,4 +13,15 @@ export type Database = ReturnType<typeof createDatabase>;
 export function createDatabase(databaseUrl: string) {
   const sql = postgres(databaseUrl, { max: 10 });
   return drizzle(sql, { schema });
+}
+
+export function createDatabaseCheck(db: Database): () => Promise<boolean> {
+  return async () => {
+    try {
+      await db.execute(drizzleSql`select 1`);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 }

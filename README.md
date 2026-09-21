@@ -136,5 +136,9 @@ Unit tests live in `test/` next to each service and run with `bun test`. They mu
 not touch the network or the database. `test/app.test.ts` and
 `test/locations-client.test.ts` show the pattern.
 
-There are no integration tests yet, and CI runs only the unit tests. They are
-planned with the CI task (#15) and will run against the Compose stack.
+Integration tests live in `test/integration/` and run with `bun run test:integration`.
+They require a real Postgres instance and the `INTEGRATION=1` environment variable
+(plus `DATABASE_URL`). CI spins up a Postgres container, initialises the schemas via
+`db/init/01-init.sh`, and then runs both integration suites with the per-service
+credentials. Unit tests (`bun test`) never run the integration suite — they are
+excluded unless `INTEGRATION=1` is set.
