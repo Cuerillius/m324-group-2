@@ -22,13 +22,14 @@ schema.
 
 ## Getting started
 
-Requires Node 22, pnpm and Docker.
+Requires Bun 1.3 and Docker. Bun is the package manager, the runtime and the
+test runner; there is no build step, the services run their TypeScript directly.
 
 ```bash
 cp .env.example .env
-pnpm install
-pnpm db:up          # starts Postgres and creates both schemas and roles
-pnpm dev            # runs both services with hot reload
+bun install
+bun run db:up       # starts Postgres and creates both schemas and roles
+bun run dev         # runs both services with hot reload
 ```
 
 Then check that both are alive:
@@ -46,16 +47,19 @@ docker compose --profile app up --build
 
 ## Everyday commands
 
-| Command              | What it does                                 |
-| -------------------- | -------------------------------------------- |
-| `pnpm test`          | Unit tests for both services                 |
-| `pnpm test:coverage` | Unit tests with a coverage report            |
-| `pnpm lint`          | ESLint across the workspace                  |
-| `pnpm typecheck`     | TypeScript with no emit                      |
-| `pnpm format`        | Prettier, writes in place                    |
-| `pnpm db:migrate`    | Applies Drizzle migrations for both services |
+| Command                 | What it does                                 |
+| ----------------------- | -------------------------------------------- |
+| `bun run test`          | Unit tests for both services                 |
+| `bun run test:coverage` | Unit tests with a coverage report            |
+| `bun run lint`          | ESLint across the workspace                  |
+| `bun run typecheck`     | TypeScript with no emit                      |
+| `bun run format`        | Prettier, writes in place                    |
+| `bun run db:migrate`    | Applies Drizzle migrations for both services |
 
-Run a single service with `pnpm --filter @m324/locations <script>`.
+Run a single service with `bun run --filter @m324/locations <script>`, or run the
+script from inside the service directory. Bun loads `.env` from the directory it
+runs in, so copy `services/<service>/.env.example` to `.env` there for local
+development.
 
 ## Architecture
 
@@ -119,7 +123,7 @@ it maps every error onto the same response envelope:
 ## Adding a user story
 
 1. Branch off `main` as `feat/<issue-id>-<description>`.
-2. Define the table in `src/db/schema.ts`, then run `pnpm --filter <service> db:generate`.
+2. Define the table in `src/db/schema.ts`, then run `bun run --filter <service> db:generate`.
 3. Write `repository.ts`, `service.ts` and `routes.ts` in the story's own folder.
 4. Register the router in `src/app.ts` and add whatever it needs to `AppDependencies`.
 5. Write at least two to three unit tests per endpoint covering happy and sad
@@ -128,7 +132,7 @@ it maps every error onto the same response envelope:
 
 ## Testing
 
-Unit tests live in `test/` next to each service and run with Vitest. They must
+Unit tests live in `test/` next to each service and run with `bun test`. They must
 not touch the network or the database. `test/app.test.ts` and
 `test/locations-client.test.ts` show the pattern.
 

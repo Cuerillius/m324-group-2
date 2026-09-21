@@ -1,6 +1,0 @@
-packages:
-  - 'services/*'
-
-# esbuild ships a prebuilt binary via its install script; vitest and tsx need it.
-allowBuilds:
-  esbuild: true

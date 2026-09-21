@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import {
   createHttpLocationsClient,
   LocationsServiceUnavailableError,
@@ -21,9 +21,9 @@ describe('httpLocationsClient', () => {
    */
   it('returns the locality when the service finds one', async () => {
     const location = { id: 'abc', name: 'Niederhasli', postalCode: '8155' };
-    const fetchFn = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify(location), { status: 200 }));
+    const fetchFn = mock().mockResolvedValue(
+      new Response(JSON.stringify(location), { status: 200 }),
+    );
 
     const client = createHttpLocationsClient({
       baseUrl,
@@ -42,7 +42,7 @@ describe('httpLocationsClient', () => {
    *           instead of a 500.
    */
   it('returns null when the locality does not exist', async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response(null, { status: 404 }));
+    const fetchFn = mock().mockResolvedValue(new Response(null, { status: 404 }));
 
     const client = createHttpLocationsClient({
       baseUrl,
@@ -58,7 +58,7 @@ describe('httpLocationsClient', () => {
    * @expected LocationsServiceUnavailableError, which the router maps to 502.
    */
   it('throws when the locations service is unreachable', async () => {
-    const fetchFn = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const fetchFn = mock().mockRejectedValue(new Error('ECONNREFUSED'));
 
     const client = createHttpLocationsClient({
       baseUrl,
@@ -75,7 +75,7 @@ describe('httpLocationsClient', () => {
    *           property is never stored against an unverified locality.
    */
   it('throws when the locations service returns an error status', async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response(null, { status: 500 }));
+    const fetchFn = mock().mockResolvedValue(new Response(null, { status: 500 }));
 
     const client = createHttpLocationsClient({
       baseUrl,

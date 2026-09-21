@@ -1,4 +1,3 @@
-import { serve } from '@hono/node-server';
 import { sql } from 'drizzle-orm';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
@@ -24,6 +23,5 @@ const app = createApp({
   },
 });
 
-serve({ fetch: app.fetch, port: config.PORT }, (info) => {
-  console.log(`properties service listening on http://localhost:${info.port}`);
-});
+const server = Bun.serve({ fetch: app.fetch, port: config.PORT });
+console.log(`properties service listening on http://localhost:${server.port}`);
