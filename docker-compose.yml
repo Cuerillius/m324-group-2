@@ -28,6 +28,17 @@ services:
       DATABASE_URL: postgres://locations_user:${LOCATIONS_DB_PASSWORD:-locations}@postgres:5432/${POSTGRES_DB:-m324}
     ports:
       - '3001:3001'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "const r = await fetch('http://localhost:3001/health/ready'); process.exit(r.ok ? 0 : 1)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,11 +54,22 @@ services:
       LOCATIONS_SERVICE_URL: http://locations:3001
     ports:
       - '3002:3002'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "const r = await fetch('http://localhost:3002/health/ready'); process.exit(r.ok ? 0 : 1)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     depends_on:
       postgres:
         condition: service_healthy
       locations:
-        condition: service_started
+        condition: service_healthy
     profiles: ['app']
 
 volumes:
