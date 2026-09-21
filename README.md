@@ -26,7 +26,9 @@ Requires Bun 1.3 and Docker. Bun is the package manager, the runtime and the
 test runner; there is no build step, the services run their TypeScript directly.
 
 ```bash
-cp .env.example .env
+cp .env.example .env                                           # for Docker Compose
+cp services/locations/.env.example services/locations/.env     # for bun run dev
+cp services/properties/.env.example services/properties/.env   # for bun run dev
 bun install
 bun run db:up       # starts Postgres and creates both service roles
 bun run dev         # runs both services with hot reload
@@ -136,8 +138,12 @@ Unit tests live in `test/` next to each service and run with `bun test`. They mu
 not touch the network or the database. `test/app.test.ts` and
 `test/locations-client.test.ts` show the pattern.
 
-There are no integration tests yet, and CI runs only the unit tests. They are
-planned with the CI task (#15) and will run against the Compose stack.
+Integration tests live in `test/integration/` and run with `bun run test:integration`.
+They require a real Postgres instance and the `INTEGRATION=1` environment variable
+(plus `DATABASE_URL`). CI spins up a Postgres container, creates the roles via
+`db/init/01-init.sh` and each service's schema as that service's role, and then runs both integration suites with the per-service
+credentials. Unit tests (`bun test`) never run the integration suite — they are
+excluded unless `INTEGRATION=1` is set.
 
 ## Deployment
 

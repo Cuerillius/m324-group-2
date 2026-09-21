@@ -13,8 +13,22 @@ concurrency:
 
 jobs:
   verify:
-    name: Lint, typecheck and unit tests
+    name: Lint, typecheck and tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: m324
+        options: >-
+          --health-cmd "pg_isready -U postgres -d m324"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v7
 
@@ -36,6 +50,37 @@ jobs:
 
       - name: Unit tests
         run: bun run test:coverage
+
+      - name: Create database roles
+        run: bash db/init/01-init.sh
+        env:
+          PGHOST: localhost
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: m324
+          LOCATIONS_DB_PASSWORD: locations
+          PROPERTIES_DB_PASSWORD: properties
+
+      # In production each service's first migration creates its schema as its
+      # own role. There are no migrations yet, so do the same here by hand.
+      - name: Create service schemas as their own roles
+        run: |
+          psql postgres://locations_user:locations@localhost:5432/m324 -c 'CREATE SCHEMA locations'
+          psql postgres://properties_user:properties@localhost:5432/m324 -c 'CREATE SCHEMA properties'
+
+      - name: Integration tests — locations
+        working-directory: services/locations
+        run: bun run test:integration
+        env:
+          INTEGRATION: 1
+          DATABASE_URL: postgres://locations_user:locations@localhost:5432/m324
+
+      - name: Integration tests — properties
+        working-directory: services/properties
+        run: bun run test:integration
+        env:
+          INTEGRATION: 1
+          DATABASE_URL: postgres://properties_user:properties@localhost:5432/m324
 
   docker:
     name: Build service images
