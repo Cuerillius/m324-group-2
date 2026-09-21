@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { DomainError, NotFoundError, ValidationError, ConflictError } from './errors.js';
+import { NotFoundError, ValidationError, ConflictError } from './errors.js';
 import { LocationsServiceUnavailableError } from './locations-client.js';
 
 /**
@@ -50,9 +50,8 @@ export function createApp(deps: AppDependencies) {
     if (err instanceof LocationsServiceUnavailableError) {
       return c.json({ error: { code: err.code, message: err.message } }, 502);
     }
-    if (err instanceof DomainError) {
-      return c.json({ error: { code: err.code, message: err.message } }, 400);
-    }
+    // Deliberately no catch-all for DomainError: a new error type must get its
+    // own status code above, and until it does it surfaces here as a 500.
     console.error('Unhandled error', err);
     return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Unexpected server error' } }, 500);
   });

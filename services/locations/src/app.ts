@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { DomainError, NotFoundError, ValidationError, ConflictError } from './errors.js';
+import { NotFoundError, ValidationError, ConflictError } from './errors.js';
 
 /**
  * Dependencies the HTTP layer needs. User story authors extend this type with
@@ -45,9 +45,8 @@ export function createApp(deps: AppDependencies) {
     if (err instanceof ConflictError) {
       return c.json({ error: { code: err.code, message: err.message } }, 409);
     }
-    if (err instanceof DomainError) {
-      return c.json({ error: { code: err.code, message: err.message } }, 400);
-    }
+    // Deliberately no catch-all for DomainError: a new error type must get its
+    // own status code above, and until it does it surfaces here as a 500.
     console.error('Unhandled error', err);
     return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Unexpected server error' } }, 500);
   });

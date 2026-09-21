@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, spyOn } from 'bun:test';
 import { createApp } from '../src/app.js';
+import { DomainError } from '../src/errors.js';
 
 /**
  * Tests for the application shell of the locations service.
@@ -66,5 +67,33 @@ describe('locations app', () => {
 
     expect(response.status).toBe(404);
     expect(body.error.code).toBe('NOT_FOUND');
+  });
+
+  /**
+   * Sad path: a domain error without its own status mapping is a programming
+   * mistake, not a client mistake.
+   *
+   * @expected 500, so a newly added error type that nobody mapped is noticed
+   *           instead of silently becoming a 400.
+   */
+  it('maps an unmapped domain error to 500', async () => {
+    class UnmappedError extends DomainError {
+      constructor() {
+        super('Not mapped yet', 'UNMAPPED');
+      }
+    }
+    const consoleError = spyOn(console, 'error').mockImplementation(() => {});
+    const app = createApp({
+      checkDatabase: async () => {
+        throw new UnmappedError();
+      },
+    });
+
+    const response = await app.request('/health/ready');
+    const body = (await response.json()) as { error: { code: string } };
+    consoleError.mockRestore();
+
+    expect(response.status).toBe(500);
+    expect(body.error.code).toBe('INTERNAL_ERROR');
   });
 });
