@@ -23,7 +23,7 @@ export interface AppDependencies {
 export function createApp(deps: AppDependencies) {
   const app = new Hono();
 
-  app.get('/health', (c) => c.json({ status: 'ok', service: 'properties', version: deps.version }));
+  app.get('/health', (c) => c.json({ status: 'ok', service: 'properties Hello World', version: deps.version }));
 
   app.get('/health/ready', async (c) => {
     const databaseUp = await deps.checkDatabase();
