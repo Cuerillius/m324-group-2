@@ -11,32 +11,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Lint, typecheck and unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Check formatting
-        run: bun run format:check
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Unit tests
-        run: bun run test:coverage
-
-  integration:
-    name: Integration tests
+    name: Lint, typecheck and tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -62,6 +37,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check formatting
+        run: bun run format:check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun run test:coverage
+
       - name: Initialize database schemas
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d m324 <<'SQL'
@@ -78,13 +65,13 @@ jobs:
 
       - name: Integration tests — locations
         working-directory: services/locations
-        run: bun test test/integration
+        run: bun run test:integration
         env:
           DATABASE_URL: postgres://locations_user:locations@localhost:5432/m324
 
       - name: Integration tests — properties
         working-directory: services/properties
-        run: bun test test/integration
+        run: bun run test:integration
         env:
           DATABASE_URL: postgres://properties_user:properties@localhost:5432/m324
 
