@@ -26,7 +26,9 @@ Requires Bun 1.3 and Docker. Bun is the package manager, the runtime and the
 test runner; there is no build step, the services run their TypeScript directly.
 
 ```bash
-cp .env.example .env
+cp .env.example .env                                           # for Docker Compose
+cp services/locations/.env.example services/locations/.env     # for bun run dev
+cp services/properties/.env.example services/properties/.env   # for bun run dev
 bun install
 bun run db:up       # starts Postgres and creates both schemas and roles
 bun run dev         # runs both services with hot reload
