@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { NotFoundError, ValidationError, ConflictError } from './errors.js';
+import { createLocationRoutes } from './locations/routes';
+import type { LocationService } from './locations/service';
 
 /**
  * Dependencies the HTTP layer needs. User story authors extend this type with
@@ -10,6 +12,7 @@ export interface AppDependencies {
   version: string;
   /** Reports whether the database is reachable. */
   checkDatabase: () => Promise<boolean>;
+  locationService: LocationService;
 }
 
 /**
@@ -33,7 +36,7 @@ export function createApp(deps: AppDependencies) {
   });
 
   // Register user story routers here, e.g.
-  // app.route('/locations', createLocationRoutes(deps.locationService));
+  app.route('/locations', createLocationRoutes(deps.locationService));
 
   app.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404));
 
