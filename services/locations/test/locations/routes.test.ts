@@ -13,7 +13,7 @@ const valid: NewLocation = {
 
 const stored: Location = {
   ...valid,
-  id: 1,
+  id: '7c9e6679-7425-40de-944b-e07fc1f2b8b4',
   createdAt: new Date('2026-09-28T08:00:00Z'),
 };
 
