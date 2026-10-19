@@ -3,6 +3,8 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createDatabase, createDatabaseCheck } from './db/client.js';
+import { createLocationRepository } from './locations/repository';
+import { createLocationService } from './locations/service';
 
 const config = loadConfig();
 const db = createDatabase(config.DATABASE_URL);
@@ -20,6 +22,7 @@ if (existsSync(migrationsFolder)) {
 const app = createApp({
   version: config.RENDER_GIT_COMMIT,
   checkDatabase: createDatabaseCheck(db),
+  locationService: createLocationService({ repo: createLocationRepository(db) }),
 });
 
 const server = Bun.serve({ fetch: app.fetch, port: config.PORT });
