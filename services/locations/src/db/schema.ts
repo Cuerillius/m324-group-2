@@ -1,4 +1,4 @@
-import { date, integer, text, timestamp, serial, pgSchema } from 'drizzle-orm/pg-core';
+import { date, integer, text, timestamp, pgSchema, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * All tables of this microservice live in the `locations` schema.
@@ -9,7 +9,7 @@ import { date, integer, text, timestamp, serial, pgSchema } from 'drizzle-orm/pg
 export const locationsSchema = pgSchema('locations');
 
 export const locations = locationsSchema.table('locations', {
-  id: serial('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   postalCode: text('postal_code').notNull().unique(),
   foundingDate: date('founding_date', { mode: 'string' }).notNull(),

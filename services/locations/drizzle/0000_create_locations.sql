@@ -1,7 +1,6 @@
 CREATE SCHEMA "locations";
---> statement-breakpoint
 CREATE TABLE "locations"."locations" (
-	"id" serial PRIMARY KEY NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"postal_code" text NOT NULL,
 	"founding_date" date NOT NULL,
