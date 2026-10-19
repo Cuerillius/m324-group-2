@@ -14,7 +14,11 @@ if (INTEGRATION && !DATABASE_URL) {
 
 describe.skipIf(!INTEGRATION)('locations health (integration)', () => {
   const db = createDatabase(DATABASE_URL!);
-  const app = createApp({ version: 'test', checkDatabase: createDatabaseCheck(db),  locationService: createLocationService({ repo: createLocationRepository(db) }),});
+  const app = createApp({
+    version: 'test',
+    checkDatabase: createDatabaseCheck(db),
+    locationService: createLocationService({ repo: createLocationRepository(db) }),
+  });
 
   afterAll(async () => {
     await db.$client.end({ timeout: 5 });

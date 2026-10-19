@@ -12,7 +12,7 @@
           "name": "id",
           "type": "serial",
           "primaryKey": true,
-          "notNull": true,
+          "notNull": true
         },
         "name": {
           "name": "name",

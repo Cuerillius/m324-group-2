@@ -3,14 +3,14 @@ import { createApp } from '../src/app.js';
 import { DomainError } from '../src/errors.js';
 import type { LocationService } from '../src/locations/service.js';
 
-    const locationService: LocationService = {
-    create: async () => {
-      throw new Error('unreachable');
-    },
-    list: async () => {
-      throw new Error('unreachable');
-    },
-  };
+const locationService: LocationService = {
+  create: async () => {
+    throw new Error('unreachable');
+  },
+  list: async () => {
+    throw new Error('unreachable');
+  },
+};
 /**
  * Tests for the application shell of the locations service.
  *
@@ -102,7 +102,7 @@ describe('locations app', () => {
       checkDatabase: async () => {
         throw new UnmappedError();
       },
-      locationService
+      locationService,
     });
 
     const response = await app.request('/health/ready');
