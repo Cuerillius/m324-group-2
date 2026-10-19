@@ -1,4 +1,4 @@
-CREATE SCHEMA "locations";
+CREATE SCHEMA IF NOT EXISTS "locations";
 CREATE TABLE "locations"."locations" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
