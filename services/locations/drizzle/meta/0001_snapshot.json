@@ -54,9 +54,7 @@
         "locations_postal_code_unique": {
           "name": "locations_postal_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "postal_code"
-          ]
+          "columns": ["postal_code"]
         }
       },
       "policies": {},
