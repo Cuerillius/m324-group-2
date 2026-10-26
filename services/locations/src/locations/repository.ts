@@ -3,20 +3,21 @@ import postgres from 'postgres';
 import type { Database } from '../db/client.js';
 import { locations } from '../db/schema.js';
 import { ConflictError } from '../errors.js';
-import type { Location, NewLocation } from './schema.js';
+import type { Location, NewLocation, PageRequest } from './schema.js';
 
 export interface LocationRepository {
   findByPostalCode(postalCode: string): Promise<Location | null>;
-  findById(id : string): Promise<Location | null>;
-  findAll(): Promise<Location[]>;
+  findById(id: string): Promise<Location | null>;
+  /** One page of the overview, ordered by name, plus the overall count. */
+  findPage(page: PageRequest): Promise<{ items: Location[]; total: number }>;
   insert(input: NewLocation): Promise<Location>;
 }
 
 function isPostalCodeConflict(err: unknown): boolean {
-  if (err instanceof postgres.PostgresError){
-    return err.constraint_name == "locations_postal_code_unique"
+  if (err instanceof postgres.PostgresError) {
+    return err.constraint_name == 'locations_postal_code_unique';
   } else {
-    return false
+    return false;
   }
 }
 
@@ -42,16 +43,27 @@ export function createLocationRepository(db: Database): LocationRepository {
       return row ?? null;
     },
 
-    async findAll() {
-      return db.select().from(locations).orderBy(asc(locations.name), asc(locations.postalCode));
+    async findPage({ limit, offset }) {
+      // Postal codes are unique, so ordering by them too keeps pages stable
+      // when two localities share a name.
+      const [items, total] = await Promise.all([
+        db
+          .select()
+          .from(locations)
+          .orderBy(asc(locations.name), asc(locations.postalCode))
+          .limit(limit)
+          .offset(offset),
+        db.$count(locations),
+      ]);
+      return { items, total };
     },
 
-    async findById(id : string){
+    async findById(id: string) {
       try {
         const [row] = await db.select().from(locations).where(eq(locations.id, id)).limit(1);
-        return row ?? null
+        return row ?? null;
       } catch {
-        return null
+        return null;
       }
     },
 
@@ -61,7 +73,9 @@ export function createLocationRepository(db: Database): LocationRepository {
         return row!;
       } catch (err) {
         if (isPostalCodeConflict(err)) {
-          throw new ConflictError(`A locality with postal code ${input.postalCode} already exists.`);
+          throw new ConflictError(
+            `A locality with postal code ${input.postalCode} already exists.`,
+          );
         }
         if (isUniqueViolation(err)) {
           throw new ConflictError(`A unique constraint has been violated.`);

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { ConflictError } from '../../src/errors.js';
 import type { LocationRepository } from '../../src/locations/repository.js';
-import type { Location, NewLocation } from '../../src/locations/schema.js';
-import { createLocationService } from '../../src/locations/service.js';
+import type { Location, NewLocation, PageRequest } from '../../src/locations/schema.js';
+import { createLocationService, NO_LOCATIONS_MESSAGE } from '../../src/locations/service.js';
 
 const input: NewLocation = {
   name: 'Niederhasli',
@@ -21,7 +21,10 @@ const stored: Location = {
 function fakeRepo(overrides: Partial<LocationRepository> = {}): LocationRepository {
   return {
     findByPostalCode: async () => null,
-    findAll: async () => {
+    findById: async () => {
+      throw new Error('unreachable');
+    },
+    findPage: async () => {
       throw new Error('unreachable');
     },
     insert: async () => {
@@ -73,26 +76,65 @@ describe('location service', () => {
   });
 
   /**
-   * Happy path: the overview lists what the repository returns.
+   * Happy path: the overview lists what the repository returns, together with
+   * the paging it was asked for (user story 2, acceptance criteria 1 to 4).
    *
-   * @expected the repository's localities, unchanged.
+   * @expected the repository's page and total, the requested limit and offset,
+   *           no message, and the page passed through to the repository.
    */
-  it('lists all localities', async () => {
+  it('lists a page of localities', async () => {
+    const requested: PageRequest[] = [];
     const service = createLocationService({
-      repo: fakeRepo({ findAll: async () => [stored] }),
+      repo: fakeRepo({
+        findPage: async (page) => {
+          requested.push(page);
+          return { items: [stored], total: 3 };
+        },
+      }),
     });
 
-    await expect(service.list()).resolves.toEqual([stored]);
+    await expect(service.list({ limit: 1, offset: 2 })).resolves.toEqual({
+      items: [stored],
+      total: 3,
+      limit: 1,
+      offset: 2,
+    });
+    expect(requested).toEqual([{ limit: 1, offset: 2 }]);
   });
 
   /**
-   * Edge case: an empty system has an empty overview rather than an error.
+   * Sad path: an empty system explains itself (user story 2, acceptance
+   * criterion 5).
    *
-   * @expected an empty array.
+   * @expected an empty page with a message saying nothing is recorded.
    */
-  it('lists nothing when no locality exists', async () => {
-    const service = createLocationService({ repo: fakeRepo({ findAll: async () => [] }) });
+  it('explains an empty overview', async () => {
+    const service = createLocationService({
+      repo: fakeRepo({ findPage: async () => ({ items: [], total: 0 }) }),
+    });
 
-    await expect(service.list()).resolves.toEqual([]);
+    await expect(service.list({ limit: 100, offset: 0 })).resolves.toEqual({
+      items: [],
+      total: 0,
+      limit: 100,
+      offset: 0,
+      message: NO_LOCATIONS_MESSAGE,
+    });
+  });
+
+  /**
+   * Edge case: paging past the end is not the same as an empty system.
+   *
+   * @expected an empty page without the "nothing recorded" message.
+   */
+  it('does not claim emptiness when paging past the end', async () => {
+    const service = createLocationService({
+      repo: fakeRepo({ findPage: async () => ({ items: [], total: 3 }) }),
+    });
+
+    const page = await service.list({ limit: 100, offset: 300 });
+
+    expect(page.items).toEqual([]);
+    expect(page.message).toBeUndefined();
   });
 });

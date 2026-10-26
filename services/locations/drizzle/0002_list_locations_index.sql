@@ -1,0 +1,1 @@
+CREATE INDEX "locations_name_postal_code_idx" ON "locations"."locations" USING btree ("name","postal_code");

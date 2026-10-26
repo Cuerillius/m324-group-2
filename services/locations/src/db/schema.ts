@@ -1,4 +1,4 @@
-import { date, integer, text, timestamp, pgSchema, uuid } from 'drizzle-orm/pg-core';
+import { date, index, integer, text, timestamp, pgSchema, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * All tables of this microservice live in the `locations` schema.
@@ -8,11 +8,17 @@ import { date, integer, text, timestamp, pgSchema, uuid } from 'drizzle-orm/pg-c
  */
 export const locationsSchema = pgSchema('locations');
 
-export const locations = locationsSchema.table('locations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  postalCode: text('postal_code').notNull().unique(),
-  foundingDate: date('founding_date', { mode: 'string' }).notNull(),
-  population: integer('population').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const locations = locationsSchema.table(
+  'locations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    postalCode: text('postal_code').notNull().unique(),
+    foundingDate: date('founding_date', { mode: 'string' }).notNull(),
+    population: integer('population').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Serves the overview's sort order, so a page is read off the index instead
+  // of sorting the whole table.
+  (table) => [index('locations_name_postal_code_idx').on(table.name, table.postalCode)],
+);

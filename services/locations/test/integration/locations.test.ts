@@ -63,7 +63,7 @@ describe.skipIf(!INTEGRATION)('recording localities (integration)', () => {
 
     const overview = await app.request('/locations');
     expect(overview.status).toBe(200);
-    await expect(overview.json()).resolves.toEqual([created]);
+    await expect(overview.json()).resolves.toMatchObject({ items: [created], total: 1 });
   });
 
   it('rejects a second locality with the same postal code', async () => {
@@ -72,8 +72,8 @@ describe.skipIf(!INTEGRATION)('recording localities (integration)', () => {
     const response = await post({ ...niederhasli, name: 'Oberhasli' });
 
     expect(response.status).toBe(409);
-    const overview = (await (await app.request('/locations')).json()) as unknown[];
-    expect(overview).toHaveLength(1);
+    const overview = (await (await app.request('/locations')).json()) as { total: number };
+    expect(overview.total).toBe(1);
   });
 
   it('turns a unique constraint violation into a ConflictError', async () => {
