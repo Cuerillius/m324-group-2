@@ -1,6 +1,17 @@
 import { describe, expect, it, spyOn } from 'bun:test';
 import { createApp } from '../src/app.js';
 import { DomainError } from '../src/errors.js';
+import type { PropertyService } from '../src/properties/service.js';
+
+/** The shell tests never reach the property routes. */
+const propertyService: PropertyService = {
+  create: async () => {
+    throw new Error('unreachable');
+  },
+  list: async () => {
+    throw new Error('unreachable');
+  },
+};
 
 /**
  * Tests for the application shell of the properties service.
@@ -18,7 +29,7 @@ describe('properties app', () => {
    *           and the version so a smoke test can tell which build is live.
    */
   it('reports liveness on GET /health', async () => {
-    const app = createApp({ version: 'test', checkDatabase: async () => true });
+    const app = createApp({ version: 'test', propertyService, checkDatabase: async () => true });
 
     const response = await app.request('/health');
 
@@ -36,7 +47,7 @@ describe('properties app', () => {
    * @expected 200 and `database: true`.
    */
   it('reports readiness while the database is reachable', async () => {
-    const app = createApp({ version: 'test', checkDatabase: async () => true });
+    const app = createApp({ version: 'test', propertyService, checkDatabase: async () => true });
 
     const response = await app.request('/health/ready');
 
@@ -50,7 +61,7 @@ describe('properties app', () => {
    * @expected 503 so an orchestrator stops routing traffic to this instance.
    */
   it('reports 503 when the database is unreachable', async () => {
-    const app = createApp({ version: 'test', checkDatabase: async () => false });
+    const app = createApp({ version: 'test', propertyService, checkDatabase: async () => false });
 
     const response = await app.request('/health/ready');
 
@@ -65,7 +76,7 @@ describe('properties app', () => {
    *           domain error uses, so clients only ever parse one format.
    */
   it('returns a structured error for an unknown route', async () => {
-    const app = createApp({ version: 'test', checkDatabase: async () => true });
+    const app = createApp({ version: 'test', propertyService, checkDatabase: async () => true });
 
     const response = await app.request('/does-not-exist');
     const body = (await response.json()) as { error: { code: string } };
@@ -90,6 +101,7 @@ describe('properties app', () => {
     const consoleError = spyOn(console, 'error').mockImplementation(() => {});
     const app = createApp({
       version: 'test',
+      propertyService,
       checkDatabase: async () => {
         throw new UnmappedError();
       },
