@@ -2,6 +2,8 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { sql } from 'drizzle-orm';
 import { createApp } from '../../src/app.js';
 import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
+import { createLocationRepository } from '../../src/locations/repository';
+import { createLocationService } from '../../src/locations/service';
 
 const INTEGRATION = process.env.INTEGRATION;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -12,7 +14,11 @@ if (INTEGRATION && !DATABASE_URL) {
 
 describe.skipIf(!INTEGRATION)('locations health (integration)', () => {
   const db = createDatabase(DATABASE_URL!);
-  const app = createApp({ version: 'test', checkDatabase: createDatabaseCheck(db) });
+  const app = createApp({
+    version: 'test',
+    checkDatabase: createDatabaseCheck(db),
+    locationService: createLocationService({ repo: createLocationRepository(db) }),
+  });
 
   afterAll(async () => {
     await db.$client.end({ timeout: 5 });
