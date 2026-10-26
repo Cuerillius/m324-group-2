@@ -10,6 +10,9 @@ const locationService: LocationService = {
   list: async () => {
     throw new Error('unreachable');
   },
+  getById: async () => {
+    throw new Error('unreachable');
+  },
 };
 /**
  * Tests for the application shell of the locations service.

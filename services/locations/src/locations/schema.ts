@@ -49,3 +49,37 @@ export const newLocationSchema = z.object({
 });
 
 export type NewLocation = z.infer<typeof newLocationSchema>;
+
+export const DEFAULT_PAGE_SIZE = 100;
+export const MAX_PAGE_SIZE = 500;
+
+/**
+ * Query parameters of the overview. The overview is paged so it stays fast no
+ * matter how many localities are recorded; unknown parameters are rejected so
+ * a typo like `?limt=10` is reported instead of silently ignored.
+ */
+export const listLocationsQuerySchema = z
+  .object({
+    limit: z.coerce
+      .number({ invalid_type_error: 'limit must be a whole number, e.g. 50' })
+      .int('limit must be a whole number, e.g. 50')
+      .min(1, 'limit must be at least 1')
+      .max(MAX_PAGE_SIZE, `limit must be at most ${MAX_PAGE_SIZE}`)
+      .default(DEFAULT_PAGE_SIZE),
+    offset: z.coerce
+      .number({ invalid_type_error: 'offset must be a whole number, e.g. 100' })
+      .int('offset must be a whole number, e.g. 100')
+      .min(0, 'offset must not be negative')
+      .default(0),
+  })
+  .strict();
+
+export type PageRequest = z.infer<typeof listLocationsQuerySchema>;
+
+export interface LocationPage extends PageRequest {
+  items: Location[];
+  /** Number of recorded localities, independent of the page. */
+  total: number;
+  /** Only present when no locality is recorded at all. */
+  message?: string;
+}
