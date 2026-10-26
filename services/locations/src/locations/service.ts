@@ -17,5 +17,9 @@ export function createLocationService(deps: { repo: LocationRepository }) {
     async list(): Promise<Location[]> {
       return deps.repo.findAll();
     },
+
+    async getById(id: string): Promise<Location | null> {
+      return deps.repo.findById(id);
+    }
   };
 }

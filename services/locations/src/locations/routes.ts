@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { ValidationError } from '../errors.js';
+import { NotFoundError, ValidationError } from '../errors.js';
 import { newLocationSchema } from './schema.js';
 import type { LocationService } from './service.js';
 
@@ -8,6 +8,16 @@ export function createLocationRoutes(service: LocationService) {
   const routes = new Hono();
 
   routes.get('/', async (c) => c.json(await service.list()));
+
+  routes.get('/:id', async (c) => {
+    const id = c.req.param('id')
+    const services = await service.getById(id)
+    if (services != null){
+      return c.json(services, 200)
+    } else {
+      throw new NotFoundError("Location not found.");
+    }
+  });
 
   routes.post('/', async (c) => {
     const body: unknown = await c.req.json().catch(() => {
