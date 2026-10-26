@@ -5,6 +5,15 @@ export type Property = typeof properties.$inferSelect;
 
 const MAX_INTEGER = 2_147_483_647;
 
+/** Top-level message of every rejected property, the field details say what to fix. */
+export const INVALID_PROPERTY_MESSAGE =
+  'The property could not be saved, please correct the marked fields';
+
+/** True for a number with at most two decimal places, e.g. 120.25. */
+function hasAtMostTwoDecimals(value: number): boolean {
+  return Math.round(value * 100) / 100 === value;
+}
+
 /** True for a YYYY-MM-DD string that names a real day Postgres can store. */
 function isCalendarDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '0001-01-01') return false;
@@ -30,7 +39,8 @@ export const newPropertySchema = z.object({
       invalid_type_error: 'Living area must be a number of square meters, e.g. 120',
     })
     .positive('Living area must be greater than 0')
-    .max(100_000, 'Living area must be at most 100000 square meters'),
+    .max(100_000, 'Living area must be at most 100000 square meters')
+    .refine(hasAtMostTwoDecimals, 'Living area can have at most two decimal places, e.g. 120.25'),
   locationId: z
     .string({
       required_error: 'Locality is required',
@@ -54,3 +64,35 @@ export const newPropertySchema = z.object({
 });
 
 export type NewProperty = z.infer<typeof newPropertySchema>;
+
+export const DEFAULT_PAGE_SIZE = 100;
+export const MAX_PAGE_SIZE = 500;
+
+/**
+ * Query parameters of the overview, the same as for localities. The overview is
+ * paged so it stays fast no matter how many properties are recorded; unknown
+ * parameters are rejected so a typo like `?limt=10` is reported.
+ */
+export const listPropertiesQuerySchema = z
+  .object({
+    limit: z.coerce
+      .number({ invalid_type_error: 'limit must be a whole number, e.g. 50' })
+      .int('limit must be a whole number, e.g. 50')
+      .min(1, 'limit must be at least 1')
+      .max(MAX_PAGE_SIZE, `limit must be at most ${MAX_PAGE_SIZE}`)
+      .default(DEFAULT_PAGE_SIZE),
+    offset: z.coerce
+      .number({ invalid_type_error: 'offset must be a whole number, e.g. 100' })
+      .int('offset must be a whole number, e.g. 100')
+      .min(0, 'offset must not be negative')
+      .default(0),
+  })
+  .strict();
+
+export type PageRequest = z.infer<typeof listPropertiesQuerySchema>;
+
+export interface PropertyPage extends PageRequest {
+  items: Property[];
+  /** Number of recorded properties, independent of the page. */
+  total: number;
+}

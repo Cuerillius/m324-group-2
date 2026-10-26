@@ -2,17 +2,7 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { sql } from 'drizzle-orm';
 import { createApp } from '../../src/app.js';
 import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
-import type { PropertyService } from '../../src/properties/service.js';
-
-/** The shell tests never reach the property routes. */
-const propertyService: PropertyService = {
-  create: async () => {
-    throw new Error('unreachable');
-  },
-  list: async () => {
-    throw new Error('unreachable');
-  },
-};
+import { unusedPropertyService as propertyService } from '../stubs.js';
 
 const INTEGRATION = process.env.INTEGRATION;
 const DATABASE_URL = process.env.DATABASE_URL;

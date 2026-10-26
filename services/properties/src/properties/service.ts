@@ -1,7 +1,13 @@
 import { ValidationError } from '../errors.js';
 import type { LocationsClient } from '../locations-client.js';
 import type { PropertyRepository } from './repository.js';
-import type { NewProperty, Property } from './schema.js';
+import {
+  INVALID_PROPERTY_MESSAGE,
+  type NewProperty,
+  type PageRequest,
+  type Property,
+  type PropertyPage,
+} from './schema.js';
 
 export type PropertyService = ReturnType<typeof createPropertyService>;
 
@@ -19,18 +25,16 @@ export function createPropertyService(deps: {
   return {
     async create(input: NewProperty): Promise<Property> {
       if (!(await deps.locations.findById(input.locationId))) {
-        throw new ValidationError(
-          'The property could not be saved, please correct the marked fields',
-          {
-            locationId: [`No locality with id ${input.locationId} exists`],
-          },
-        );
+        throw new ValidationError(INVALID_PROPERTY_MESSAGE, {
+          locationId: [`No locality with id ${input.locationId} exists`],
+        });
       }
       return deps.repo.insert(input);
     },
 
-    async list(): Promise<Property[]> {
-      return deps.repo.findAll();
+    async list(page: PageRequest): Promise<PropertyPage> {
+      const { items, total } = await deps.repo.findPage(page);
+      return { items, total, ...page };
     },
   };
 }

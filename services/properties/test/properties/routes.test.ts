@@ -34,7 +34,7 @@ function setup(overrides: Partial<PropertyService> = {}) {
       created.push(input);
       return stored;
     },
-    list: async () => [stored],
+    list: async (page) => ({ items: [stored], total: 1, ...page }),
     ...overrides,
   };
   const app = createApp({ version: 'test', checkDatabase: async () => true, propertyService });
@@ -158,6 +158,34 @@ describe('POST /properties', () => {
     const details = await rejectedFields({ ...valid, livingArea: 0 });
 
     expect(details.livingArea).toEqual(['Living area must be greater than 0']);
+  });
+
+  /**
+   * Sad path: more than two decimals would be rounded by the database, so they
+   * are rejected instead (criteria 3 and 7).
+   *
+   * @expected 400 marking livingArea.
+   */
+  it('rejects a living area with more than two decimals', async () => {
+    const details = await rejectedFields({ ...valid, livingArea: 99_999.999 });
+
+    expect(details.livingArea).toEqual([
+      'Living area can have at most two decimal places, e.g. 120.25',
+    ]);
+  });
+
+  /**
+   * Edge case: two decimals are fine.
+   *
+   * @expected 201 with the living area passed on unchanged.
+   */
+  it('accepts a living area with two decimals', async () => {
+    const { app, created } = setup();
+
+    const response = await post(app, { ...valid, livingArea: 99_999.99 });
+
+    expect(response.status).toBe(201);
+    expect(created[0]?.livingArea).toBe(99_999.99);
   });
 
   /**
@@ -288,30 +316,69 @@ describe('POST /properties', () => {
 
 describe('GET /properties', () => {
   /**
-   * Happy path: the overview shows every property with all fields (criterion 8).
+   * Happy path: the overview shows the first page with all fields (criterion 8).
    *
-   * @expected 200 with the stored properties.
+   * @expected 200 with the stored properties, the total and the default window.
    */
-  it('lists all properties', async () => {
+  it('lists the first page of properties', async () => {
     const { app } = setup();
 
     const response = await app.request('/properties');
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual([storedJson]);
+    await expect(response.json()).resolves.toEqual({
+      items: [storedJson],
+      total: 1,
+      limit: 100,
+      offset: 0,
+    });
+  });
+
+  /**
+   * Happy path: limit and offset select the window.
+   *
+   * @expected the parsed numbers passed on to the service.
+   */
+  it('passes limit and offset on to the service', async () => {
+    const { app } = setup();
+
+    const response = await app.request('/properties?limit=10&offset=20');
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ limit: 10, offset: 20 });
   });
 
   /**
    * Edge case: an empty system has an empty overview rather than an error.
    *
-   * @expected 200 with an empty array.
+   * @expected 200 with no items and a total of 0.
    */
-  it('returns an empty list when no property exists', async () => {
-    const { app } = setup({ list: async () => [] });
+  it('returns an empty page when no property exists', async () => {
+    const { app } = setup({ list: async (page) => ({ items: [], total: 0, ...page }) });
 
     const response = await app.request('/properties');
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual([]);
+    await expect(response.json()).resolves.toEqual({ items: [], total: 0, limit: 100, offset: 0 });
+  });
+
+  /**
+   * Sad path: a page size beyond the maximum and an unknown parameter are
+   * reported per parameter.
+   *
+   * @expected 400 VALIDATION_ERROR marking limit and the unknown parameter.
+   */
+  it('rejects an invalid limit and unknown parameters', async () => {
+    const { app } = setup();
+
+    const response = await app.request('/properties?limit=501&limt=10');
+
+    expect(response.status).toBe(400);
+    const { error } = (await response.json()) as ErrorBody;
+    expect(error.code).toBe('VALIDATION_ERROR');
+    expect(error.details).toEqual({
+      limit: ['limit must be at most 500'],
+      limt: ['Unknown query parameter, use limit or offset'],
+    });
   });
 });

@@ -1,17 +1,7 @@
 import { describe, expect, it, spyOn } from 'bun:test';
 import { createApp } from '../src/app.js';
 import { DomainError } from '../src/errors.js';
-import type { PropertyService } from '../src/properties/service.js';
-
-/** The shell tests never reach the property routes. */
-const propertyService: PropertyService = {
-  create: async () => {
-    throw new Error('unreachable');
-  },
-  list: async () => {
-    throw new Error('unreachable');
-  },
-};
+import { unusedPropertyService as propertyService } from './stubs.js';
 
 /**
  * Tests for the application shell of the properties service.

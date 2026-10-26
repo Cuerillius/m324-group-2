@@ -33,7 +33,7 @@ function fakeRepo(overrides: Partial<PropertyRepository> = {}): PropertyReposito
     insert: async () => {
       throw new Error('unreachable');
     },
-    findAll: async () => {
+    findPage: async () => {
       throw new Error('unreachable');
     },
     ...overrides,
@@ -111,16 +111,29 @@ describe('property service', () => {
   });
 
   /**
-   * Happy path: the overview lists what the repository returns (criterion 8).
+   * Happy path: the overview lists one page of what the repository returns
+   * (criterion 8).
    *
-   * @expected the repository's properties, unchanged.
+   * @expected the repository's page with the total and the requested window.
    */
-  it('lists all properties', async () => {
+  it('lists one page of properties', async () => {
+    const pages: unknown[] = [];
     const service = createPropertyService({
-      repo: fakeRepo({ findAll: async () => [stored] }),
+      repo: fakeRepo({
+        findPage: async (page) => {
+          pages.push(page);
+          return { items: [stored], total: 7 };
+        },
+      }),
       locations: knownLocality,
     });
 
-    await expect(service.list()).resolves.toEqual([stored]);
+    await expect(service.list({ limit: 1, offset: 6 })).resolves.toEqual({
+      items: [stored],
+      total: 7,
+      limit: 1,
+      offset: 6,
+    });
+    expect(pages).toEqual([{ limit: 1, offset: 6 }]);
   });
 });

@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createApp } from '../../src/app.js';
@@ -14,7 +15,9 @@ if (INTEGRATION && !DATABASE_URL) {
   throw new Error('INTEGRATION=1 requires DATABASE_URL to be set');
 }
 
-const locationId = '7c9e6679-7425-40de-944b-e07fc1f2b8b4';
+// A locality id of its own, so cleaning up only ever touches this test's rows,
+// even when DATABASE_URL points at a database with real data in it.
+const locationId = 'a1e5c0de-7e57-4000-8000-000000000003';
 
 const house = {
   type: 'house',
@@ -45,12 +48,12 @@ describe.skipIf(!INTEGRATION)('entering properties (integration)', () => {
     await migrate(db, { migrationsFolder, migrationsSchema: 'properties_drizzle' });
   });
 
-  beforeEach(async () => {
-    await db.delete(properties);
-  });
+  const deleteTestRows = () => db.delete(properties).where(eq(properties.locationId, locationId));
+
+  beforeEach(deleteTestRows);
 
   afterAll(async () => {
-    await db.delete(properties);
+    await deleteTestRows();
     await db.$client.end({ timeout: 5 });
   });
 
@@ -69,25 +72,34 @@ describe.skipIf(!INTEGRATION)('entering properties (integration)', () => {
     expect(created).toMatchObject({ ...house, saleDate: null });
     expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
 
-    const overview = await app.request('/properties');
+    // The overview is oldest first, so the new property is on the last page.
+    const first = (await (await app.request('/properties')).json()) as { total: number };
+    const overview = await app.request(`/properties?offset=${first.total - 1}`);
     expect(overview.status).toBe(200);
-    await expect(overview.json()).resolves.toEqual([created]);
+    await expect(overview.json()).resolves.toMatchObject({ items: [created] });
   });
 
-  it('keeps half rooms and the sale date exactly as entered', async () => {
-    const response = await post({ ...house, roomCount: 3.5, saleDate: '2026-09-30' });
+  it('keeps half rooms, a precise living area and the sale date exactly as entered', async () => {
+    const response = await post({
+      ...house,
+      roomCount: 3.5,
+      livingArea: 99_999.99,
+      saleDate: '2026-09-30',
+    });
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
       roomCount: 3.5,
+      livingArea: 99_999.99,
       saleDate: '2026-09-30',
     });
   });
 
   it('stores nothing for an unknown locality', async () => {
-    const response = await post({ ...house, locationId: crypto.randomUUID() });
+    const unknown = crypto.randomUUID();
+    const response = await post({ ...house, locationId: unknown });
 
     expect(response.status).toBe(400);
-    expect(await db.select().from(properties)).toEqual([]);
+    expect(await db.$count(properties, eq(properties.locationId, unknown))).toBe(0);
   });
 });

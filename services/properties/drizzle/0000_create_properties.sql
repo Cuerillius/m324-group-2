@@ -1,4 +1,4 @@
-CREATE SCHEMA "properties";
+CREATE SCHEMA IF NOT EXISTS "properties";
 --> statement-breakpoint
 CREATE TABLE "properties"."properties" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,

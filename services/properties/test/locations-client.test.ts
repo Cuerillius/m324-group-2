@@ -42,7 +42,12 @@ describe('httpLocationsClient', () => {
    *           instead of a 500.
    */
   it('returns null when the locality does not exist', async () => {
-    const fetchFn = mock().mockResolvedValue(new Response(null, { status: 404 }));
+    const fetchFn = mock().mockResolvedValue(
+      Response.json(
+        { error: { code: 'NOT_FOUND', message: 'Location not found.' } },
+        { status: 404 },
+      ),
+    );
 
     const client = createHttpLocationsClient({
       baseUrl,
@@ -50,6 +55,28 @@ describe('httpLocationsClient', () => {
     });
 
     await expect(client.findById('missing')).resolves.toBeNull();
+  });
+
+  /**
+   * Sad path: a microservice 1 without GET /locations/:id answers 404 for the
+   * route, which must not read as "this locality does not exist".
+   *
+   * @expected LocationsServiceUnavailableError, so the request becomes a 502.
+   */
+  it.each([
+    ['the route is missing', { error: { code: 'NOT_FOUND', message: 'Route not found' } }],
+    ['the body is not the error envelope', null],
+  ])('throws on a 404 when %s', async (_, body) => {
+    const fetchFn = mock().mockResolvedValue(
+      new Response(body && JSON.stringify(body), { status: 404 }),
+    );
+
+    const client = createHttpLocationsClient({
+      baseUrl,
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+
+    await expect(client.findById('abc')).rejects.toBeInstanceOf(LocationsServiceUnavailableError);
   });
 
   /**
