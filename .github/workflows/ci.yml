@@ -121,30 +121,46 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # A plain `docker push` from the runner's containerd image store is denied
+      # by GHCR at the manifest step, so build and push with buildx instead.
+      - uses: docker/setup-buildx-action@v4
+
       - name: Build and push ${{ matrix.service }}
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          provenance: false
+          sbom: false
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+          tags: |
+            ${{ env.IMAGE }}:${{ github.ref_name }}
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+
+      - name: Summary
         env:
           VERSION: ${{ github.ref_name }}
           SHA_TAG: sha-${{ github.sha }}
+          DIGEST: ${{ steps.push.outputs.digest }}
         run: |
-          docker build -f services/${{ matrix.service }}/Dockerfile \
-            --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
-            --label org.opencontainers.image.revision=${{ github.sha }} \
-            --label org.opencontainers.image.version=$VERSION \
-            -t $IMAGE:$VERSION -t $IMAGE:$SHA_TAG -t $IMAGE:latest .
-          for tag in $VERSION $SHA_TAG latest; do docker push $IMAGE:$tag; done
-          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' $IMAGE:$VERSION)
           echo "Published $IMAGE:$VERSION ($SHA_TAG, latest)"
-          echo "Digest: $DIGEST"
+          echo "Digest: $IMAGE@$DIGEST"
           {
             echo "### ${{ matrix.service }}"
             echo "- \`$IMAGE:$VERSION\`"
             echo "- \`$IMAGE:$SHA_TAG\`"
             echo "- \`$IMAGE:latest\`"
-            echo "- Digest: \`$DIGEST\`"
+            echo "- Digest: \`$IMAGE@$DIGEST\`"
           } >> "$GITHUB_STEP_SUMMARY"
