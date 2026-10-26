@@ -63,11 +63,17 @@ jobs:
           PROPERTIES_DB_PASSWORD: properties
 
       # In production each service's first migration creates its schema as its
-      # own role. There are no migrations yet, so do the same here by hand.
-      - name: Create service schemas as their own roles
-        run: |
-          psql postgres://locations_user:locations@localhost:5432/m324 -c 'CREATE SCHEMA locations'
-          psql postgres://properties_user:properties@localhost:5432/m324 -c 'CREATE SCHEMA properties'
+      # own role. Properties has a migration, locations not yet, so create the
+      # locations schema here by hand. Both schemas must exist before any
+      # integration test runs, since each service checks it can't reach the other.
+      - name: Create the locations schema as its own role
+        run: psql postgres://locations_user:locations@localhost:5432/m324 -c 'CREATE SCHEMA locations'
+
+      - name: Migrate properties as its own role
+        working-directory: services/properties
+        run: bun run db:migrate
+        env:
+          DATABASE_URL: postgres://properties_user:properties@localhost:5432/m324
 
       - name: Integration tests — locations
         working-directory: services/locations
