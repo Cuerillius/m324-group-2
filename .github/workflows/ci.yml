@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 
 # A newer push to a pull request makes the older run pointless. On main the run
@@ -102,3 +103,48 @@ jobs:
     with:
       commit: ${{ github.sha }}
     secrets: inherit
+
+  publish:
+    name: Publish service images
+    runs-on: ubuntu-latest
+    needs: [verify, docker]
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    strategy:
+      matrix:
+        service: [locations, properties]
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/cuerillius/m324-group-2/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        env:
+          VERSION: ${{ github.ref_name }}
+          SHA_TAG: sha-${{ github.sha }}
+        run: |
+          docker build -f services/${{ matrix.service }}/Dockerfile \
+            --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            --label org.opencontainers.image.version=$VERSION \
+            -t $IMAGE:$VERSION -t $IMAGE:$SHA_TAG -t $IMAGE:latest .
+          for tag in $VERSION $SHA_TAG latest; do docker push $IMAGE:$tag; done
+          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' $IMAGE:$VERSION)
+          echo "Published $IMAGE:$VERSION ($SHA_TAG, latest)"
+          echo "Digest: $DIGEST"
+          {
+            echo "### ${{ matrix.service }}"
+            echo "- \`$IMAGE:$VERSION\`"
+            echo "- \`$IMAGE:$SHA_TAG\`"
+            echo "- \`$IMAGE:latest\`"
+            echo "- Digest: \`$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
