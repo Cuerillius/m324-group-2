@@ -1,0 +1,23 @@
+meta {
+  name: 08 List with invalid query (400)
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{propertiesUrl}}/properties?limit=10&limit=20&offset=-1
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq VALIDATION_ERROR
+  res.body.error.details.limit: isDefined
+  res.body.error.details.offset: isDefined
+}
+
+docs {
+  `limit` is given twice and `offset` is negative; each is reported under its
+  own name.
+}

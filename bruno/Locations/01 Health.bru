@@ -1,0 +1,21 @@
+meta {
+  name: 01 Health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{locationsUrl}}/health
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq ok
+  res.body.service: eq locations
+}
+
+docs {
+  Liveness check. `version` is the commit SHA that is currently deployed.
+}

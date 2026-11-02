@@ -1,0 +1,28 @@
+meta {
+  name: 05 List properties paged
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{propertiesUrl}}/properties?limit=2&offset=1
+  body: none
+  auth: none
+}
+
+params:query {
+  limit: 2
+  offset: 1
+}
+
+assert {
+  res.status: eq 200
+  res.body.limit: eq 2
+  res.body.offset: eq 1
+}
+
+tests {
+  test("returns at most two items", function () {
+    expect(res.body.items.length).to.be.at.most(2);
+  });
+}

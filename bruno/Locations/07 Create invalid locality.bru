@@ -1,0 +1,29 @@
+meta {
+  name: 07 Create invalid locality (400)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{locationsUrl}}/locations
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "",
+    "postalCode": "123",
+    "foundingDate": "2999-01-01",
+    "population": -5
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq VALIDATION_ERROR
+}
+
+docs {
+  Every field is wrong, so `error.details` lists a message per field.
+}

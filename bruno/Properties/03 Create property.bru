@@ -1,0 +1,39 @@
+meta {
+  name: 03 Create property
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{propertiesUrl}}/properties
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "type": "house",
+    "roomCount": 5.5,
+    "livingArea": 142.5,
+    "locationId": "{{locationId}}",
+    "askingPrice": 1250000,
+    "saleDate": null
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: isDefined
+  res.body.locationId: eq {{locationId}}
+  res.body.saleDate: isNull
+}
+
+docs {
+  **User story 3: enter a property.**
+
+  `type` is `house` or `apartment`, `roomCount` comes in half steps, and
+  `livingArea` takes at most two decimals. Leave `saleDate` out or set it to
+  `null` until the property is sold.
+
+  Needs `{{locationId}}` from "Locations / 03 Create locality".
+}

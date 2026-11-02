@@ -1,0 +1,33 @@
+meta {
+  name: 07 Create property for unknown locality (400)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{propertiesUrl}}/properties
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "type": "apartment",
+    "roomCount": 3.5,
+    "livingArea": 85,
+    "locationId": "00000000-0000-4000-8000-000000000000",
+    "askingPrice": 780000
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq VALIDATION_ERROR
+  res.body.error.details.locationId: isDefined
+}
+
+docs {
+  A well-formed id that the locations service does not know. Properties asks
+  `GET /locations/:id` and refuses to store the property. If the locations
+  service is down, the answer is `502 LOCATIONS_SERVICE_UNAVAILABLE` instead.
+}

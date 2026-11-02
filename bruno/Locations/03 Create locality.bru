@@ -1,0 +1,50 @@
+meta {
+  name: 03 Create locality
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{locationsUrl}}/locations
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Winterthur",
+    "postalCode": "{{postalCode}}",
+    "foundingDate": "1264-06-22",
+    "population": 120376
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: isDefined
+  res.body.name: eq Winterthur
+}
+
+script:pre-request {
+  // Postal codes are unique, so pick a fresh one to keep the demo repeatable.
+  bru.setVar("postalCode", String(1000 + Math.floor(Math.random() * 9000)));
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("locationId", res.body.id);
+  }
+}
+
+tests {
+  test("Location header points to the new locality", function () {
+    expect(res.headers.location).to.equal(`/locations/${res.body.id}`);
+  });
+}
+
+docs {
+  **User story 1: record a locality.**
+
+  Answers `201 Created` with the saved locality and a `Location` header.
+  The id is stored in `{{locationId}}` for the following requests.
+}
