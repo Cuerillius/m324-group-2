@@ -39,7 +39,14 @@ export function createLocationRoutes(service: LocationService) {
 
     const parsed = newLocationSchema.safeParse(body);
     if (!parsed.success) {
-      const details = parsed.error.flatten().fieldErrors as Record<string, string[]>;
+      const { fieldErrors, formErrors } = parsed.error.flatten();
+
+      const details: Record<string, string[]> = {};
+      for (const [field, messages] of Object.entries(fieldErrors)) {
+        if (messages?.length) details[field] = messages;
+      }
+      if (formErrors.length) details.formErrors = formErrors;
+
       throw new ValidationError(
         'The locality could not be saved, please correct the marked fields',
         details,

@@ -41,7 +41,10 @@ function setup(overrides: Partial<LocationService> = {}) {
       listed.push(page);
       return { items: [stored], total: 1, ...page };
     },
-    getById: async () => stored,
+    getById: async (id: string) => {
+      const found = [stored].find((t) => t.id == id);
+      return found ?? null;
+    },
     ...overrides,
   };
   const app = createApp({ version: 'test', checkDatabase: async () => true, locationService });
@@ -138,6 +141,7 @@ describe('POST /locations', () => {
       'Founding date must use the format YYYY-MM-DD, e.g. "1899-05-15"',
     ],
     ['foundingDate', '1899-02-30', 'Founding date must be a day that exists, e.g. "1899-05-15"'],
+    ['foundingDate', '0000-01-01', 'Founding date must be a day that exists, e.g. "1899-05-15"'],
     ['foundingDate', '2999-01-01', 'Founding date must not be in the future'],
     ['population', -1, 'Population must not be negative'],
     ['population', 55.5, 'Population must be a whole number'],

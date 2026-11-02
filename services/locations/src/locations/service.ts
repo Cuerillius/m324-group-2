@@ -1,4 +1,3 @@
-import { ConflictError } from '../errors.js';
 import type { LocationRepository } from './repository.js';
 import type { Location, LocationPage, NewLocation, PageRequest } from './schema.js';
 
@@ -10,9 +9,6 @@ export type LocationService = ReturnType<typeof createLocationService>;
 export function createLocationService(deps: { repo: LocationRepository }) {
   return {
     async create(input: NewLocation): Promise<Location> {
-      if (await deps.repo.findByPostalCode(input.postalCode)) {
-        throw new ConflictError(`A locality with postal code ${input.postalCode} already exists`);
-      }
       return deps.repo.insert(input);
     },
 

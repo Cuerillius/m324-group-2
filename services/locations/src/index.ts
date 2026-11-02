@@ -3,8 +3,8 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createDatabase, createDatabaseCheck } from './db/client.js';
-import { createLocationRepository } from './locations/repository';
-import { createLocationService } from './locations/service';
+import { createLocationRepository } from './locations/repository.js';
+import { createLocationService } from './locations/service.js';
 
 const config = loadConfig();
 const db = createDatabase(config.DATABASE_URL);

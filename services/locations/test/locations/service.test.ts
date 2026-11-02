@@ -62,11 +62,18 @@ describe('location service', () => {
   /**
    * Sad path: postal codes are unique (acceptance criterion 7).
    *
-   * @expected a ConflictError naming the postal code, and no insert.
+   * The unique constraint is the only reliable check, so the service relies on
+   * the repository reporting the conflict.
+   *
+   * @expected the repository's ConflictError, unchanged.
    */
   it('rejects a duplicate postal code', async () => {
     const service = createLocationService({
-      repo: fakeRepo({ findByPostalCode: async () => stored }),
+      repo: fakeRepo({
+        insert: async () => {
+          throw new ConflictError('A locality with postal code 8155 already exists.');
+        },
+      }),
     });
 
     const result = service.create(input);

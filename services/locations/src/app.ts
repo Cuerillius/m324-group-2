@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { NotFoundError, ValidationError, ConflictError } from './errors.js';
-import { createLocationRoutes } from './locations/routes';
-import type { LocationService } from './locations/service';
+import { createLocationRoutes } from './locations/routes.js';
+import type { LocationService } from './locations/service.js';
 
 /**
  * Dependencies the HTTP layer needs. User story authors extend this type with

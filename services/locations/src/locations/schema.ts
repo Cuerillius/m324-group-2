@@ -7,7 +7,11 @@ const MAX_POPULATION = 2_147_483_647;
 
 function isCalendarDate(value: string): boolean {
   const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().startsWith(value) &&
+    parsed.getFullYear() >= 1
+  );
 }
 
 export const newLocationSchema = z.object({
@@ -33,7 +37,7 @@ export const newLocationSchema = z.object({
         ? 'Founding date must use the format YYYY-MM-DD, e.g. "1899-05-15"'
         : !isCalendarDate(value)
           ? 'Founding date must be a day that exists, e.g. "1899-05-15"'
-          : value > new Date().toISOString().slice(0, 10)
+          : value > new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Zurich' })
             ? 'Founding date must not be in the future'
             : null;
       if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });

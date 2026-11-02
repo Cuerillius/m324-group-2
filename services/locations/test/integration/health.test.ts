@@ -2,8 +2,8 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { sql } from 'drizzle-orm';
 import { createApp } from '../../src/app.js';
 import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
-import { createLocationRepository } from '../../src/locations/repository';
-import { createLocationService } from '../../src/locations/service';
+import { createLocationRepository } from '../../src/locations/repository.js';
+import { createLocationService } from '../../src/locations/service.js';
 
 const INTEGRATION = process.env.INTEGRATION;
 const DATABASE_URL = process.env.DATABASE_URL;
