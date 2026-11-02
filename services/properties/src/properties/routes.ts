@@ -12,10 +12,11 @@ import type { PropertyService } from './service.js';
 /**
  * Groups the errors by field, the same envelope as in the locations service.
  * Unknown query parameters are reported under their own name, which `flatten()`
- * would lump into a nameless form error.
+ * would lump into a nameless form error. No prototype, because those names come
+ * from the client and `?constructor=1` must not find an inherited member.
  */
 function toDetails(error: ZodError): Record<string, string[]> {
-  const details: Record<string, string[]> = {};
+  const details = Object.create(null) as Record<string, string[]>;
   for (const issue of error.issues) {
     const entries =
       issue.code === 'unrecognized_keys'

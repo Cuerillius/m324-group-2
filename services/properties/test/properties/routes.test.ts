@@ -381,4 +381,54 @@ describe('GET /properties', () => {
       limt: ['Unknown query parameter, use limit or offset'],
     });
   });
+
+  /**
+   * Sad path: an unknown parameter named like a member of every JavaScript
+   * object is still just an unknown parameter.
+   *
+   * @expected 400 marking the parameter, not a 500.
+   */
+  it.each(['constructor', 'toString', 'hasOwnProperty'])(
+    'rejects an unknown parameter called %p',
+    async (name) => {
+      const { app } = setup();
+
+      const response = await app.request(`/properties?${name}=1`);
+
+      expect(response.status).toBe(400);
+      const { error } = (await response.json()) as ErrorBody;
+      expect(error.details).toEqual({
+        [name]: ['Unknown query parameter, use limit or offset'],
+      });
+    },
+  );
+
+  /**
+   * Sad path: only plain digits count as a whole number, and values too big for
+   * Postgres are stopped before they reach it.
+   *
+   * @expected 400 marking the parameter for each faulty value.
+   */
+  it.each([
+    ['limit=', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=abc', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=0x10', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=1e2', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=2.5', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=%2010%20', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=10&limit=9999', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=0', 'limit', 'limit must be at least 1'],
+    ['offset=', 'offset', 'offset must be a whole number, e.g. 100'],
+    ['offset=1e20', 'offset', 'offset must be a whole number, e.g. 100'],
+    ['offset=-1', 'offset', 'offset must not be negative'],
+    ['offset=99999999999999999999', 'offset', `offset must be at most ${Number.MAX_SAFE_INTEGER}`],
+  ])('rejects the query %p', async (query, parameter, message) => {
+    const { app } = setup();
+
+    const response = await app.request(`/properties?${query}`);
+
+    expect(response.status).toBe(400);
+    const { error } = (await response.json()) as ErrorBody;
+    expect(error.details).toEqual({ [parameter!]: [message!] });
+  });
 });

@@ -69,23 +69,40 @@ export const DEFAULT_PAGE_SIZE = 100;
 export const MAX_PAGE_SIZE = 500;
 
 /**
+ * A whole number in the query string. Plain digits only, because `Number()` on
+ * its own would also accept an empty value, `0x10` and `1e2`.
+ */
+function wholeNumberParam(message: string) {
+  return z
+    .string({ invalid_type_error: message })
+    .regex(/^-?\d+$/, message)
+    .transform(Number);
+}
+
+/**
  * Query parameters of the overview, the same as for localities. The overview is
  * paged so it stays fast no matter how many properties are recorded; unknown
- * parameters are rejected so a typo like `?limt=10` is reported.
+ * parameters are rejected so a typo like `?limt=10` is reported. The offset has
+ * an upper bound so a huge value is a 400 here, not a 500 from Postgres.
  */
 export const listPropertiesQuerySchema = z
   .object({
-    limit: z.coerce
-      .number({ invalid_type_error: 'limit must be a whole number, e.g. 50' })
-      .int('limit must be a whole number, e.g. 50')
-      .min(1, 'limit must be at least 1')
-      .max(MAX_PAGE_SIZE, `limit must be at most ${MAX_PAGE_SIZE}`)
-      .default(DEFAULT_PAGE_SIZE),
-    offset: z.coerce
-      .number({ invalid_type_error: 'offset must be a whole number, e.g. 100' })
-      .int('offset must be a whole number, e.g. 100')
-      .min(0, 'offset must not be negative')
-      .default(0),
+    limit: wholeNumberParam('limit must be a whole number, e.g. 50')
+      .pipe(
+        z
+          .number()
+          .min(1, 'limit must be at least 1')
+          .max(MAX_PAGE_SIZE, `limit must be at most ${MAX_PAGE_SIZE}`),
+      )
+      .default(String(DEFAULT_PAGE_SIZE)),
+    offset: wholeNumberParam('offset must be a whole number, e.g. 100')
+      .pipe(
+        z
+          .number()
+          .min(0, 'offset must not be negative')
+          .max(Number.MAX_SAFE_INTEGER, `offset must be at most ${Number.MAX_SAFE_INTEGER}`),
+      )
+      .default('0'),
   })
   .strict();
 

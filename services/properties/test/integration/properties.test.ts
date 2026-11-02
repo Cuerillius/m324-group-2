@@ -102,4 +102,11 @@ describe.skipIf(!INTEGRATION)('entering properties (integration)', () => {
     expect(response.status).toBe(400);
     expect(await db.$count(properties, eq(properties.locationId, unknown))).toBe(0);
   });
+
+  it('accepts the largest offset the validation lets through', async () => {
+    const response = await app.request(`/properties?offset=${Number.MAX_SAFE_INTEGER}`);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ items: [] });
+  });
 });
