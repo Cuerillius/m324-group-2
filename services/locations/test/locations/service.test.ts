@@ -72,7 +72,9 @@ describe('location service', () => {
     const result = service.create(input);
 
     await expect(result).rejects.toBeInstanceOf(ConflictError);
-    await expect(result).rejects.toThrow(`A locality with postal code ${input.postalCode} already exists.`);
+    await expect(result).rejects.toThrow(
+      `A locality with postal code ${input.postalCode} already exists.`,
+    );
   });
 
   /**
