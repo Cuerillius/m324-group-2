@@ -53,3 +53,54 @@ export const newLocationSchema = z.object({
 });
 
 export type NewLocation = z.infer<typeof newLocationSchema>;
+
+export const DEFAULT_PAGE_SIZE = 100;
+export const MAX_PAGE_SIZE = 500;
+/** Postgres takes OFFSET as a bigint; anything near this is a mistake anyway. */
+export const MAX_OFFSET = 2_147_483_647;
+
+/**
+ * A paging value from the query string. Only plain digits are accepted, so
+ * `1e2`, `0x10` and an empty value are rejected instead of being coerced.
+ */
+function pagingParameter(
+  name: string,
+  example: number,
+  min: number,
+  max: number,
+  fallback: number,
+) {
+  return z
+    .string()
+    .regex(/^\d+$/, `${name} must be a whole number, e.g. ${example}`)
+    .optional()
+    .transform((value) => (value === undefined ? fallback : Number(value)))
+    .pipe(
+      z
+        .number()
+        .min(min, `${name} must be at least ${min}`)
+        .max(max, `${name} must be at most ${max}`),
+    );
+}
+
+/**
+ * Query parameters of the overview. The overview is paged so it stays fast no
+ * matter how many localities are recorded; unknown parameters are rejected so
+ * a typo like `?limt=10` is reported instead of silently ignored.
+ */
+export const listLocationsQuerySchema = z
+  .object({
+    limit: pagingParameter('limit', 50, 1, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE),
+    offset: pagingParameter('offset', 100, 0, MAX_OFFSET, 0),
+  })
+  .strict();
+
+export type PageRequest = z.infer<typeof listLocationsQuerySchema>;
+
+export interface LocationPage extends PageRequest {
+  items: Location[];
+  /** Number of recorded localities, independent of the page. */
+  total: number;
+  /** Only present when no locality is recorded at all. */
+  message?: string;
+}
