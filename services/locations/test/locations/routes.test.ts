@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, spyOn } from 'bun:test';
 import { createApp } from '../../src/app.js';
 import { ConflictError } from '../../src/errors.js';
-import type { Location, NewLocation } from '../../src/locations/schema.js';
-import type { LocationService } from '../../src/locations/service.js';
+import {
+  MAX_OFFSET,
+  MAX_PAGE_SIZE,
+  type Location,
+  type NewLocation,
+  type PageRequest,
+} from '../../src/locations/schema.js';
+import { NO_LOCATIONS_MESSAGE, type LocationService } from '../../src/locations/service.js';
 
 const valid: NewLocation = {
   name: 'Niederhasli',
@@ -26,20 +32,24 @@ const MAX_POPULATION = 2_147_483_647;
 /** Builds the app around a fake service that records what it was asked to create. */
 function setup(overrides: Partial<LocationService> = {}) {
   const created: NewLocation[] = [];
+  const listed: PageRequest[] = [];
   const locationService: LocationService = {
     create: async (input) => {
       created.push(input);
       return stored;
     },
+    list: async (page) => {
+      listed.push(page);
+      return { items: [stored], total: 1, ...page };
+    },
     getById: async (id: string) => {
       const found = [stored].find((t) => t.id == id);
       return found ?? null;
     },
-    list: async () => [stored],
     ...overrides,
   };
   const app = createApp({ version: 'test', checkDatabase: async () => true, locationService });
-  return { app, created };
+  return { app, created, listed };
 }
 
 function post(app: ReturnType<typeof setup>['app'], body: unknown) {
@@ -205,35 +215,148 @@ describe('POST /locations', () => {
   });
 });
 
+/**
+ * Tests for the HTTP layer of user story 2: paging, the empty overview and
+ * rejected query parameters. The service is a fake, so no database is involved.
+ */
 describe('GET /locations', () => {
   /**
-   * Happy path: the overview shows the recorded localities (acceptance
-   * criterion 6).
+   * Happy path: the overview returns every field of each locality (acceptance
+   * criteria 1 and 2) on the first page by default.
    *
-   * @expected 200 with the list from the service.
+   * @expected 200 with all fields, the total, and the default paging.
    */
   it('lists the localities', async () => {
-    const { app } = setup();
+    const { app, listed } = setup();
 
     const response = await app.request('/locations');
 
     expect(response.status).toBe(200);
-    expect(response.json()).resolves.toEqual([
-      { ...valid, id: stored.id, createdAt: '2026-09-28T08:00:00.000Z' },
-    ]);
+    await expect(response.json()).resolves.toEqual({
+      items: [{ ...valid, id: stored.id, createdAt: '2026-09-28T08:00:00.000Z' }],
+      total: 1,
+      limit: 100,
+      offset: 0,
+    });
+    expect(listed).toEqual([{ limit: 100, offset: 0 }]);
   });
 
   /**
-   * Edge case: an empty overview is still a successful answer.
+   * Happy path: the client can page through many localities (acceptance
+   * criterion 4).
    *
-   * @expected 200 with an empty array.
+   * @expected the service receives the requested limit and offset as numbers.
    */
-  it('returns an empty list when nothing is recorded', async () => {
-    const { app } = setup({ list: async () => [] });
+  it('passes the requested page to the service', async () => {
+    const { app, listed } = setup();
+
+    const response = await app.request('/locations?limit=20&offset=40');
+
+    expect(response.status).toBe(200);
+    expect(listed).toEqual([{ limit: 20, offset: 40 }]);
+  });
+
+  /**
+   * Sad path: an empty system is still a successful answer, but says so
+   * (acceptance criterion 5).
+   *
+   * @expected 200 with an empty list and the service's message.
+   */
+  it('passes on the message for an empty overview', async () => {
+    const { app } = setup({
+      list: async (page) => ({ items: [], total: 0, ...page, message: NO_LOCATIONS_MESSAGE }),
+    });
 
     const response = await app.request('/locations');
 
     expect(response.status).toBe(200);
-    expect(response.json()).resolves.toEqual([]);
+    await expect(response.json()).resolves.toEqual({
+      items: [],
+      total: 0,
+      limit: 100,
+      offset: 0,
+      message: NO_LOCATIONS_MESSAGE,
+    });
+  });
+
+  /**
+   * Sad path: faulty query parameters are rejected with a message per
+   * parameter (acceptance criterion 6).
+   *
+   * @expected 400 VALIDATION_ERROR naming the parameter, and no service call.
+   */
+  it.each([
+    ['limit=abc', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=1.5', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=0', 'limit', 'limit must be at least 1'],
+    [`limit=${MAX_PAGE_SIZE + 1}`, 'limit', `limit must be at most ${MAX_PAGE_SIZE}`],
+    ['limit=', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=1e2', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=0x10', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['offset=', 'offset', 'offset must be a whole number, e.g. 100'],
+    ['offset=-1', 'offset', 'offset must be a whole number, e.g. 100'],
+    ['offset=x', 'offset', 'offset must be a whole number, e.g. 100'],
+    [`offset=${MAX_OFFSET + 1}`, 'offset', `offset must be at most ${MAX_OFFSET}`],
+    ['offset=100000000000000000000', 'offset', `offset must be at most ${MAX_OFFSET}`],
+    ['limit=10&limit=9999', 'limit', 'Give limit only once'],
+    ['limt=10', 'limt', 'Unknown query parameter, use limit or offset'],
+    ['constructor=1', 'constructor', 'Unknown query parameter, use limit or offset'],
+    ['toString=1', 'toString', 'Unknown query parameter, use limit or offset'],
+    ['__proto__=1', '__proto__', 'Unknown query parameter, use limit or offset'],
+  ])('rejects ?%s', async (query, field, message) => {
+    const { app, listed } = setup();
+
+    const response = await app.request(`/locations?${query}`);
+    const body = (await response.json()) as ErrorBody;
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(body.error.details).toEqual({ [field]: [message] });
+    expect(listed).toEqual([]);
+  });
+});
+
+describe('GET /locations/:id', () => {
+  /**
+   * Sad path: an id that is not a UUID cannot belong to any locality.
+   *
+   * @expected 404 without asking the service, so the database never sees a
+   *           malformed uuid and its real errors are not mistaken for one.
+   */
+  it('answers 404 for a malformed id without a lookup', async () => {
+    let lookups = 0;
+    const { app } = setup({
+      getById: async () => {
+        lookups++;
+        return null;
+      },
+    });
+
+    const response = await app.request('/locations/not-a-uuid');
+    const body = (await response.json()) as ErrorBody;
+
+    expect(response.status).toBe(404);
+    expect(body.error.code).toBe('NOT_FOUND');
+    expect(lookups).toBe(0);
+  });
+
+  /**
+   * Sad path: a failing database is not a missing locality.
+   *
+   * @expected 500, so properties reports the locations service as unavailable
+   *           instead of claiming the locality does not exist.
+   */
+  it('lets a database failure through as 500', async () => {
+    const consoleError = spyOn(console, 'error').mockImplementation(() => {});
+    const { app } = setup({
+      getById: async () => {
+        throw new Error('connection refused');
+      },
+    });
+
+    const response = await app.request(`/locations/${stored.id}`);
+    consoleError.mockRestore();
+
+    expect(response.status).toBe(500);
   });
 });
