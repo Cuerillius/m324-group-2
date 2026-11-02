@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DomainError } from './errors.js';
+import { DomainError } from '@m324/shared/errors';
 
 /**
  * A locality as microservice 1 returns it. Only the fields this service needs

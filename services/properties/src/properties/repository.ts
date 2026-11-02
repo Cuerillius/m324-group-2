@@ -1,7 +1,7 @@
 import { asc } from 'drizzle-orm';
 import type { Database } from '../db/client.js';
 import { properties } from '../db/schema.js';
-import type { PageRequest } from '../http/validation.js';
+import type { PageRequest } from '@m324/shared/validation';
 import type { NewProperty, Property } from './schema.js';
 
 export interface PropertyRepository {

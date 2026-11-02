@@ -1,7 +1,8 @@
+import { createDatabaseCheck } from '@m324/shared/db';
+import { runMigrations } from '@m324/shared/migrate';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
-import { createDatabase, createDatabaseCheck } from './db/client.js';
-import { runMigrations } from './db/migrate.js';
+import { createDatabase } from './db/client.js';
 import { createHttpLocationsClient } from './locations-client.js';
 import { createPropertyRepository } from './properties/repository.js';
 import { createPropertyService } from './properties/service.js';
@@ -12,8 +13,12 @@ const db = createDatabase(config.DATABASE_URL);
 // Pending migrations run before the server listens, so a deploy only passes the
 // health check once the schema matches the code. Render's free plan has no
 // pre-deploy step to do this separately. A migration that hangs fails startup
-// after a deadline instead of silently blocking the port, see db/migrate.ts.
-await runMigrations(db, { migrationsSchema: 'properties_drizzle' });
+// after a deadline instead of silently blocking the port, see
+// @m324/shared/migrate.
+await runMigrations(db, {
+  migrationsSchema: 'properties_drizzle',
+  migrationsFolder: new URL('../drizzle', import.meta.url).pathname,
+});
 
 const app = createApp({
   version: config.RENDER_GIT_COMMIT,

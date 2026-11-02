@@ -1,5 +1,5 @@
-import { ValidationError } from '../errors.js';
-import type { PageRequest } from '../http/validation.js';
+import { ValidationError } from '@m324/shared/errors';
+import type { PageRequest } from '@m324/shared/validation';
 import type { LocationsClient } from '../locations-client.js';
 import type { PropertyRepository } from './repository.js';
 import {

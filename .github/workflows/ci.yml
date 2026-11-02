@@ -49,13 +49,6 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
-      # Both services carry identical copies of these modules, see their headers.
-      - name: Check the shared modules are identical
-        run: |
-          for file in src/http/validation.ts src/db/migrate.ts test/db/migrate.test.ts; do
-            cmp "services/locations/$file" "services/properties/$file"
-          done
-
       - name: Unit tests
         run: bun run test:coverage
 

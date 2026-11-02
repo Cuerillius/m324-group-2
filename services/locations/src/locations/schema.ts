@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { locations } from '../db/schema.js';
-import { isCalendarDate, type Page } from '../http/validation.js';
+import { isCalendarDate, type Page } from '@m324/shared/validation';
 
 export type Location = typeof locations.$inferSelect;
 

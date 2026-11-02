@@ -1,12 +1,9 @@
 /**
  * Applies pending Drizzle migrations on startup, with a deadline.
- *
- * Both microservices carry an identical copy of this file; CI checks that the
- * copies match. Change both together.
  */
 import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import type { Database } from './client.js';
+import type { Database } from './db.js';
 
 /**
  * How long startup may spend on migrations. A migration usually takes
@@ -58,7 +55,8 @@ export async function cancelLockWaits(db: Database): Promise<string[]> {
 export interface RunMigrationsOptions {
   /** Schema of Drizzle's bookkeeping table, e.g. `locations_drizzle`. */
   migrationsSchema: string;
-  migrationsFolder?: string;
+  /** Absolute path of the service's `drizzle` folder. */
+  migrationsFolder: string;
   timeoutMs?: number;
   log?: (message: string) => void;
   /** Injected so tests can simulate a slow or failing migration. */
@@ -69,7 +67,7 @@ export interface RunMigrationsOptions {
 export async function runMigrations(db: Database, options: RunMigrationsOptions): Promise<void> {
   const {
     migrationsSchema,
-    migrationsFolder = new URL('../../drizzle', import.meta.url).pathname,
+    migrationsFolder,
     timeoutMs = MIGRATION_TIMEOUT_MS,
     log = console.log,
     migrateFn = migrate,
