@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { ValidationError } from '../../src/errors.js';
+import { ValidationError } from '@m324/shared/errors';
 import {
   LocationsServiceUnavailableError,
   type LocationsClient,

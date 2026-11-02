@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { createApp } from '../../src/app.js';
-import { ValidationError } from '../../src/errors.js';
+import { ValidationError } from '@m324/shared/errors';
 import { LocationsServiceUnavailableError } from '../../src/locations-client.js';
-import { MAX_OFFSET } from '../../src/http/validation.js';
+import { MAX_OFFSET } from '@m324/shared/validation';
 import type { NewProperty, Property } from '../../src/properties/schema.js';
 import { NO_PROPERTIES_MESSAGE, type PropertyService } from '../../src/properties/service.js';
 

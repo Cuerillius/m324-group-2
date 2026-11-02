@@ -1,6 +1,6 @@
 import { describe, expect, it, spyOn } from 'bun:test';
 import { createApp } from '../src/app.js';
-import { DomainError } from '../src/errors.js';
+import { DomainError } from '@m324/shared/errors';
 import type { LocationService } from '../src/locations/service.js';
 
 const locationService: LocationService = {

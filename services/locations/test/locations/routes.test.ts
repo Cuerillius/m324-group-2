@@ -1,7 +1,7 @@
 import { describe, expect, it, spyOn } from 'bun:test';
 import { createApp } from '../../src/app.js';
-import { ConflictError } from '../../src/errors.js';
-import { MAX_OFFSET, MAX_PAGE_SIZE, type PageRequest } from '../../src/http/validation.js';
+import { ConflictError } from '@m324/shared/errors';
+import { MAX_OFFSET, MAX_PAGE_SIZE, type PageRequest } from '@m324/shared/validation';
 import type { Location, NewLocation } from '../../src/locations/schema.js';
 import { NO_LOCATIONS_MESSAGE, type LocationService } from '../../src/locations/service.js';
 

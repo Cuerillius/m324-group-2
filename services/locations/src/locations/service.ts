@@ -1,4 +1,4 @@
-import type { PageRequest } from '../http/validation.js';
+import type { PageRequest } from '@m324/shared/validation';
 import type { LocationRepository } from './repository.js';
 import type { Location, LocationPage, NewLocation } from './schema.js';
 

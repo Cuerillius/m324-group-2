@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { NotFoundError } from '../errors.js';
-import { jsonBody, pageQuery } from '../http/validation.js';
+import { NotFoundError } from '@m324/shared/errors';
+import { jsonBody, pageQuery } from '@m324/shared/validation';
 import { INVALID_LOCATION_MESSAGE, newLocationSchema } from './schema.js';
 import type { LocationService } from './service.js';
 

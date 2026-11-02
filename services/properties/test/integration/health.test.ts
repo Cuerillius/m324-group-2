@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, it } from 'bun:test';
 import { sql } from 'drizzle-orm';
 import { createApp } from '../../src/app.js';
-import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
+import { createDatabaseCheck } from '@m324/shared/db';
+import { createDatabase } from '../../src/db/client.js';
 import { unusedPropertyService as propertyService } from '../stubs.js';
 
 const INTEGRATION = process.env.INTEGRATION;

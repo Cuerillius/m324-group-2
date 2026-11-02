@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { jsonBody, pageQuery } from '../http/validation.js';
+import { jsonBody, pageQuery } from '@m324/shared/validation';
 import { INVALID_PROPERTY_MESSAGE, newPropertySchema } from './schema.js';
 import type { PropertyService } from './service.js';
 

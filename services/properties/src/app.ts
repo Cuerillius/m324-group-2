@@ -1,6 +1,4 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { ConflictError, NotFoundError, ValidationError } from './errors.js';
+import { createServiceApp } from '@m324/shared/app';
 import { LocationsServiceUnavailableError } from './locations-client.js';
 import { createPropertyRoutes } from './properties/routes.js';
 import type { PropertyService } from './properties/service.js';
@@ -18,61 +16,23 @@ export interface AppDependencies {
 }
 
 /**
- * Builds the Hono application.
+ * Builds the Hono application. The health endpoints and the error envelope
+ * come from the shared app shell; this service only adds its routes.
  *
  * Everything the app needs arrives as an argument, so an integration test can
  * build a fully wired app against a throwaway database and a stubbed locations
  * service without touching `process.env`.
  */
 export function createApp(deps: AppDependencies) {
-  const app = new Hono();
-
-  app.get('/health', (c) => c.json({ status: 'ok', service: 'properties', version: deps.version }));
-
-  app.get('/health/ready', async (c) => {
-    const databaseUp = await deps.checkDatabase();
-    return c.json(
-      { status: databaseUp ? 'ok' : 'degraded', database: databaseUp },
-      databaseUp ? 200 : 503,
-    );
+  const app = createServiceApp({
+    service: 'properties',
+    version: deps.version,
+    checkDatabase: deps.checkDatabase,
+    // A dependency being down is not the client's fault, so it maps to 502.
+    errorStatuses: [[LocationsServiceUnavailableError, 502]],
   });
 
   app.route('/properties', createPropertyRoutes(deps.propertyService));
-
-  app.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404));
-
-  app.onError((err, c) => {
-    // Hono's validator throws this for a body that is not valid JSON.
-    if (err instanceof HTTPException && err.status === 400) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Request body must be valid JSON',
-            details: {},
-          },
-        },
-        400,
-      );
-    }
-    if (err instanceof ValidationError) {
-      return c.json({ error: { code: err.code, message: err.message, details: err.details } }, 400);
-    }
-    if (err instanceof NotFoundError) {
-      return c.json({ error: { code: err.code, message: err.message } }, 404);
-    }
-    if (err instanceof ConflictError) {
-      return c.json({ error: { code: err.code, message: err.message } }, 409);
-    }
-    // A dependency being down is not the client's fault, so it maps to 502.
-    if (err instanceof LocationsServiceUnavailableError) {
-      return c.json({ error: { code: err.code, message: err.message } }, 502);
-    }
-    // Deliberately no catch-all for DomainError: a new error type must get its
-    // own status code above, and until it does it surfaces here as a 500.
-    console.error('Unhandled error', err);
-    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Unexpected server error' } }, 500);
-  });
 
   return app;
 }

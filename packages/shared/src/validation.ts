@@ -1,14 +1,11 @@
 /**
- * Request validation shared by every route of this service.
- *
- * Both microservices carry an identical copy of this file, so their APIs
+ * Request validation shared by every route of both services, so their APIs
  * behave the same: the same paging parameters, the same limits and the same
- * error envelope. They never import each other's code, which is why it is a
- * copy and not a shared package. Change both copies together.
+ * error envelope.
  */
 import { zValidator } from '@hono/zod-validator';
 import { z, type ZodError, type ZodTypeAny } from 'zod';
-import { ValidationError } from '../errors.js';
+import { ValidationError } from './errors.js';
 
 export const DEFAULT_PAGE_SIZE = 100;
 export const MAX_PAGE_SIZE = 500;
@@ -101,7 +98,7 @@ const JSON_CONTENT_TYPE = /^application\/([a-z-.]+\+)?json(;|$)/i;
  * Validates a JSON request body against `schema`. Read the result with
  * `c.req.valid('json')`.
  *
- * Malformed JSON surfaces as Hono's HTTPException, which `app.ts` maps onto
+ * Malformed JSON surfaces as Hono's HTTPException, which `createServiceApp` maps onto
  * the same envelope. A missing JSON content type is rejected here, because Hono
  * would otherwise validate an empty object and report every field as missing.
  */

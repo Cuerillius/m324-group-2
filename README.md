@@ -15,7 +15,8 @@ All our documentation is in Google Docs, only the Kanban board is in Github.
 | `properties` | 3002 | `properties` | User story 3, manages properties         |
 
 The two services are independent projects that happen to share a repository.
-They never import each other's code. `properties` validates a locality by
+They never import each other's code; what they have in common lives in the
+`@m324/shared` package under `packages/shared`. `properties` validates a locality by
 calling the HTTP endpoint of `locations`, never by reading its tables, and the
 database enforces that: `properties_user` has no privileges on the `locations`
 schema.
@@ -100,7 +101,18 @@ Inside `src/`, each service is split into layers, and dependencies only ever poi
 <story>/repository.ts   Database access through Drizzle.
 <story>/schema.ts       Zod validation schemas and the types derived from the table.
 db/schema.ts            Drizzle table definitions, the source of the migrations.
-http/validation.ts      Request body and paging validation shared by all routes.
+```
+
+Code both services need lives in `packages/shared` and is imported by subpath,
+e.g. `@m324/shared/validation`. It holds no business logic of either service.
+
+```
+app.ts                  App shell: health endpoints, 404 and the error envelope.
+config.ts               Environment variables every service needs.
+db.ts                   The readiness check behind GET /health/ready.
+errors.ts               Domain errors the service layer throws.
+migrate.ts              Startup migrations with a deadline.
+validation.ts           Request body and paging validation shared by all routes.
 ```
 
 The important rule is that `service.ts` never imports Hono and never imports the
@@ -141,7 +153,7 @@ const service = createPropertyService({
 await expect(service.create(input)).rejects.toBeInstanceOf(ValidationError);
 ```
 
-Routes validate with the helpers from `src/http/validation.ts`, so every
+Routes validate with the helpers from `@m324/shared/validation`, so every
 endpoint reports problems the same way:
 
 ```ts
@@ -153,14 +165,13 @@ routes.post('/', jsonBody(newPropertySchema, INVALID_PROPERTY_MESSAGE), async (c
 );
 ```
 
-Both services keep an identical copy of that file, because they never import
-each other's code. CI fails if the copies drift apart, so change both together.
-
 ### Errors
 
-`src/errors.ts` defines the domain errors. Throw those from the service layer.
-The router in `src/app.ts` is the only place that knows about status codes, and
-it maps every error onto the same response envelope:
+`@m324/shared/errors` defines the domain errors. Throw those from the service
+layer. The shared app shell (`createServiceApp`) is the only place that knows
+about status codes, and it maps every error onto the same response envelope. A
+service maps its own errors through `errorStatuses`, as `properties` does for
+`LocationsServiceUnavailableError`:
 
 ```json
 { "error": { "code": "VALIDATION_ERROR", "message": "...", "details": { "name": ["..."] } } }
@@ -182,7 +193,7 @@ parameter, all at once rather than one per attempt.
 1. Branch off `main` as `feat/<issue-id>-<description>`.
 2. Define the table in `src/db/schema.ts`, then run `bun run --filter <service> db:generate`.
 3. Write `repository.ts`, `service.ts` and `routes.ts` in the story's own folder.
-   Validate requests with `jsonBody` and `pageQuery` from `src/http/validation.ts`.
+   Validate requests with `jsonBody` and `pageQuery` from `@m324/shared/validation`.
 4. Register the router in `src/app.ts` and add whatever it needs to `AppDependencies`.
 5. Write at least two to three unit tests per endpoint covering happy and sad
    paths, documented with JSDoc as in the existing tests.
@@ -190,7 +201,8 @@ parameter, all at once rather than one per attempt.
 
 ## Testing
 
-Unit tests live in `test/` next to each service and run with `bun test`. They must
+Unit tests live in `test/` next to each service and the shared package, and run
+with `bun test`. They must
 not touch the network or the database. `test/app.test.ts` and
 `test/locations-client.test.ts` show the pattern.
 
@@ -225,7 +237,7 @@ Each service applies its pending Drizzle migrations on startup, before it
 listens. A migration must therefore stay compatible with the previous release,
 because a rollback redeploys old code onto the new schema.
 
-Startup gives migrations two minutes (`src/db/migrate.ts`). One that takes
+Startup gives migrations two minutes (`packages/shared/src/migrate.ts`). One that takes
 longer is almost always waiting for a lock another session holds, such as a
 database GUI or a `drizzle-kit` command left open against Neon. The service
 then cancels its waiting statement and exits with a `MigrationTimeoutError`

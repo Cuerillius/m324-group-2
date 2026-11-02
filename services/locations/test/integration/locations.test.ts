@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createApp } from '../../src/app.js';
-import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
-import { ConflictError } from '../../src/errors.js';
+import { createDatabaseCheck } from '@m324/shared/db';
+import { createDatabase } from '../../src/db/client.js';
+import { ConflictError } from '@m324/shared/errors';
 import { createLocationRepository } from '../../src/locations/repository.js';
 import { createLocationService } from '../../src/locations/service.js';
 import { disposableLocations } from './disposable.js';

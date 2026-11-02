@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import type { Database } from '../../src/db/client.js';
-import { MigrationTimeoutError, runMigrations } from '../../src/db/migrate.js';
+import type { Database } from '../src/db.js';
+import { MigrationTimeoutError, runMigrations } from '../src/migrate.js';
 
 // runMigrations only hands the database on to migrateFn, so no real one is needed.
 const db = {} as Database;
@@ -43,6 +43,7 @@ describe('runMigrations', () => {
     let cancelled = 0;
     const result = runMigrations(db, {
       migrationsSchema: 'test_drizzle',
+      migrationsFolder: '/migrations',
       timeoutMs: 20,
       log: () => {},
       migrateFn: () => new Promise(() => {}),
@@ -68,6 +69,7 @@ describe('runMigrations', () => {
     const logs: string[] = [];
     const result = runMigrations(db, {
       migrationsSchema: 'test_drizzle',
+      migrationsFolder: '/migrations',
       timeoutMs: 20,
       log: (message) => logs.push(message),
       migrateFn: () => new Promise(() => {}),
@@ -90,6 +92,7 @@ describe('runMigrations', () => {
 
     const result = runMigrations(db, {
       migrationsSchema: 'test_drizzle',
+      migrationsFolder: '/migrations',
       log: (message) => logs.push(message),
       migrateFn: async () => {
         throw new Error('syntax error at or near "CREAT"');

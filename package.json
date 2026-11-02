@@ -4,6 +4,7 @@
   "type": "module",
   "packageManager": "bun@1.3.14",
   "workspaces": [
+    "packages/*",
     "services/*"
   ],
   "engines": {
@@ -11,13 +12,13 @@
   },
   "scripts": {
     "dev": "bun run --filter \"./services/*\" dev",
-    "test": "bun run --filter \"./services/*\" test",
-    "test:coverage": "bun run --filter \"./services/*\" test:coverage",
+    "test": "bun run --filter \"./packages/*\" --filter \"./services/*\" test",
+    "test:coverage": "bun run --filter \"./packages/*\" --filter \"./services/*\" test:coverage",
     "test:integration": "bun run --filter \"./services/*\" test:integration",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "bun run --filter \"./services/*\" typecheck",
+    "typecheck": "bun run --filter \"./packages/*\" --filter \"./services/*\" typecheck",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:migrate": "bun run --filter \"./services/*\" db:migrate"

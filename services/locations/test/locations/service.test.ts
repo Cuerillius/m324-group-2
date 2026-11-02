@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
-import { ConflictError } from '../../src/errors.js';
+import { ConflictError } from '@m324/shared/errors';
 import type { LocationRepository } from '../../src/locations/repository.js';
-import type { PageRequest } from '../../src/http/validation.js';
+import type { PageRequest } from '@m324/shared/validation';
 import type { Location, NewLocation } from '../../src/locations/schema.js';
 import { createLocationService, NO_LOCATIONS_MESSAGE } from '../../src/locations/service.js';
 

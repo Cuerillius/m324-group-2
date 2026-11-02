@@ -2,8 +2,8 @@ import { asc, eq, sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import type { Database } from '../db/client.js';
 import { locations, NAME_COLLATION } from '../db/schema.js';
-import { ConflictError } from '../errors.js';
-import type { PageRequest } from '../http/validation.js';
+import { ConflictError } from '@m324/shared/errors';
+import type { PageRequest } from '@m324/shared/validation';
 import type { Location, NewLocation } from './schema.js';
 
 export interface LocationRepository {
