@@ -4,6 +4,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createApp } from '../../src/app.js';
 import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
 import { properties } from '../../src/db/schema.js';
+import { MAX_OFFSET } from '../../src/http/validation.js';
 import type { LocationsClient } from '../../src/locations-client.js';
 import { createPropertyRepository } from '../../src/properties/repository.js';
 import { createPropertyService } from '../../src/properties/service.js';
@@ -104,7 +105,7 @@ describe.skipIf(!INTEGRATION)('entering properties (integration)', () => {
   });
 
   it('accepts the largest offset the validation lets through', async () => {
-    const response = await app.request(`/properties?offset=${Number.MAX_SAFE_INTEGER}`);
+    const response = await app.request(`/properties?offset=${MAX_OFFSET}`);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ items: [] });

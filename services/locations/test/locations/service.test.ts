@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { ConflictError } from '../../src/errors.js';
 import type { LocationRepository } from '../../src/locations/repository.js';
-import type { Location, NewLocation, PageRequest } from '../../src/locations/schema.js';
+import type { PageRequest } from '../../src/http/validation.js';
+import type { Location, NewLocation } from '../../src/locations/schema.js';
 import { createLocationService, NO_LOCATIONS_MESSAGE } from '../../src/locations/service.js';
 
 const input: NewLocation = {
@@ -20,7 +21,6 @@ const stored: Location = {
 /** A repository whose methods all fail unless the test overrides them. */
 function fakeRepo(overrides: Partial<LocationRepository> = {}): LocationRepository {
   return {
-    findByPostalCode: async () => null,
     findById: async () => {
       throw new Error('unreachable');
     },
@@ -65,9 +65,8 @@ describe('location service', () => {
    * @expected a ConflictError naming the postal code, and no insert.
    */
   it('rejects a duplicate postal code', async () => {
-    const service = createLocationService({
-      repo: fakeRepo({ findByPostalCode: async () => stored }),
-    });
+    // The fake repository's insert rejects like the real one on a taken code.
+    const service = createLocationService({ repo: fakeRepo() });
 
     const result = service.create(input);
 

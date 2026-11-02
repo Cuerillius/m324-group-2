@@ -1,13 +1,8 @@
 import { describe, expect, it, spyOn } from 'bun:test';
 import { createApp } from '../../src/app.js';
 import { ConflictError } from '../../src/errors.js';
-import {
-  MAX_OFFSET,
-  MAX_PAGE_SIZE,
-  type Location,
-  type NewLocation,
-  type PageRequest,
-} from '../../src/locations/schema.js';
+import { MAX_OFFSET, MAX_PAGE_SIZE, type PageRequest } from '../../src/http/validation.js';
+import type { Location, NewLocation } from '../../src/locations/schema.js';
 import { NO_LOCATIONS_MESSAGE, type LocationService } from '../../src/locations/service.js';
 
 const valid: NewLocation = {
@@ -178,6 +173,29 @@ describe('POST /locations', () => {
   });
 
   /**
+   * Sad path: without a JSON content type Hono would not read the body at
+   * all, and every field would be reported as missing.
+   *
+   * @expected 400 VALIDATION_ERROR naming the content type, and no insert.
+   */
+  it('rejects a body sent without a JSON content type', async () => {
+    const { app, created } = setup();
+
+    const response = await app.request('/locations', {
+      method: 'POST',
+      body: JSON.stringify(valid),
+    });
+    const body = (await response.json()) as ErrorBody;
+
+    expect(response.status).toBe(400);
+    expect(body.error).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'Request body must be JSON, sent as Content-Type: application/json',
+    });
+    expect(created).toEqual([]);
+  });
+
+  /**
    * Sad path: valid JSON that is not an object has no fields to validate.
    *
    * @expected 400 VALIDATION_ERROR explaining the expected shape.
@@ -338,6 +356,36 @@ describe('GET /locations/:id', () => {
     expect(response.status).toBe(404);
     expect(body.error.code).toBe('NOT_FOUND');
     expect(lookups).toBe(0);
+  });
+
+  /**
+   * Happy path: a recorded locality is returned by its id.
+   *
+   * @expected 200 with the locality.
+   */
+  it('returns a recorded locality', async () => {
+    const { app } = setup();
+
+    const response = await app.request(`/locations/${stored.id}`);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ id: stored.id, name: valid.name });
+  });
+
+  /**
+   * Sad path: a well-formed id nobody recorded.
+   *
+   * @expected 404 NOT_FOUND with the message properties relies on.
+   */
+  it('answers 404 for an unknown id', async () => {
+    const { app } = setup();
+
+    const response = await app.request('/locations/00000000-0000-4000-8000-000000000000');
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: { code: 'NOT_FOUND', message: 'Location not found.' },
+    });
   });
 
   /**

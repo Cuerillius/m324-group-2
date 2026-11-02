@@ -1,13 +1,15 @@
 import { ValidationError } from '../errors.js';
+import type { PageRequest } from '../http/validation.js';
 import type { LocationsClient } from '../locations-client.js';
 import type { PropertyRepository } from './repository.js';
 import {
   INVALID_PROPERTY_MESSAGE,
   type NewProperty,
-  type PageRequest,
   type Property,
   type PropertyPage,
 } from './schema.js';
+
+export const NO_PROPERTIES_MESSAGE = 'No properties have been recorded yet.';
 
 export type PropertyService = ReturnType<typeof createPropertyService>;
 
@@ -34,7 +36,7 @@ export function createPropertyService(deps: {
 
     async list(page: PageRequest): Promise<PropertyPage> {
       const { items, total } = await deps.repo.findPage(page);
-      return { items, total, ...page };
+      return { items, total, ...page, ...(total === 0 && { message: NO_PROPERTIES_MESSAGE }) };
     },
   };
 }

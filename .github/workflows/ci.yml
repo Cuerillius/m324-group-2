@@ -49,6 +49,10 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      # Both services carry the same request validation module, see its header.
+      - name: Check the shared validation module is identical
+        run: cmp services/locations/src/http/validation.ts services/properties/src/http/validation.ts
+
       - name: Unit tests
         run: bun run test:coverage
 
@@ -62,12 +66,15 @@ jobs:
           LOCATIONS_DB_PASSWORD: locations
           PROPERTIES_DB_PASSWORD: properties
 
-      # In production each service's first migration creates its schema as its
-      # own role. Properties has a migration, locations not yet, so create the
-      # locations schema here by hand. Both schemas must exist before any
-      # integration test runs, since each service checks it can't reach the other.
-      - name: Create the locations schema as its own role
-        run: psql postgres://locations_user:locations@localhost:5432/m324 -c 'CREATE SCHEMA locations'
+      # Each service migrates as its own role, the same way it does on startup
+      # in production, and its first migration creates its schema. Both
+      # schemas must exist before any integration test runs, since each suite
+      # checks that it cannot reach the other service's schema.
+      - name: Migrate locations as its own role
+        working-directory: services/locations
+        run: bun run db:migrate
+        env:
+          DATABASE_URL: postgres://locations_user:locations@localhost:5432/m324
 
       - name: Migrate properties as its own role
         working-directory: services/properties

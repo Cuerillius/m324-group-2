@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { NotFoundError, ValidationError, ConflictError } from './errors.js';
+import { HTTPException } from 'hono/http-exception';
+import { ConflictError, NotFoundError, ValidationError } from './errors.js';
 import { createLocationRoutes } from './locations/routes.js';
 import type { LocationService } from './locations/service.js';
 
@@ -35,12 +36,24 @@ export function createApp(deps: AppDependencies) {
     );
   });
 
-  // Register user story routers here, e.g.
   app.route('/locations', createLocationRoutes(deps.locationService));
 
   app.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404));
 
   app.onError((err, c) => {
+    // Hono's validator throws this for a body that is not valid JSON.
+    if (err instanceof HTTPException && err.status === 400) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Request body must be valid JSON',
+            details: {},
+          },
+        },
+        400,
+      );
+    }
     if (err instanceof ValidationError) {
       return c.json({ error: { code: err.code, message: err.message, details: err.details } }, 400);
     }

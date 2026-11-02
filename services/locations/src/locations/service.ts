@@ -1,11 +1,18 @@
+import type { PageRequest } from '../http/validation.js';
 import type { LocationRepository } from './repository.js';
-import type { Location, LocationPage, NewLocation, PageRequest } from './schema.js';
+import type { Location, LocationPage, NewLocation } from './schema.js';
 
 export const NO_LOCATIONS_MESSAGE = 'No localities have been recorded yet.';
 
 export type LocationService = ReturnType<typeof createLocationService>;
 
-// business logic for location
+/**
+ * Business logic of user stories 1 and 2.
+ *
+ * Postal codes are unique. The database enforces that, so two concurrent
+ * requests cannot both get past a check here; the repository turns the
+ * violation into a ConflictError.
+ */
 export function createLocationService(deps: { repo: LocationRepository }) {
   return {
     async create(input: NewLocation): Promise<Location> {

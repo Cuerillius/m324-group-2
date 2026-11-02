@@ -2,8 +2,9 @@ import { describe, expect, it } from 'bun:test';
 import { createApp } from '../../src/app.js';
 import { ValidationError } from '../../src/errors.js';
 import { LocationsServiceUnavailableError } from '../../src/locations-client.js';
+import { MAX_OFFSET } from '../../src/http/validation.js';
 import type { NewProperty, Property } from '../../src/properties/schema.js';
-import type { PropertyService } from '../../src/properties/service.js';
+import { NO_PROPERTIES_MESSAGE, type PropertyService } from '../../src/properties/service.js';
 
 const valid = {
   type: 'house',
@@ -256,6 +257,30 @@ describe('POST /properties', () => {
   });
 
   /**
+   * Sad path: without a JSON content type Hono would not read the body at
+   * all, and every field would be reported as missing.
+   *
+   * @expected 400 VALIDATION_ERROR naming the content type, and no insert.
+   */
+  it('rejects a body sent without a JSON content type', async () => {
+    const { app, created } = setup();
+
+    const response = await app.request('/properties', {
+      method: 'POST',
+      body: JSON.stringify(valid),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Request body must be JSON, sent as Content-Type: application/json',
+      },
+    });
+    expect(created).toEqual([]);
+  });
+
+  /**
    * Sad path: a JSON array is valid JSON but not a property.
    *
    * @expected 400 VALIDATION_ERROR.
@@ -349,17 +374,26 @@ describe('GET /properties', () => {
   });
 
   /**
-   * Edge case: an empty system has an empty overview rather than an error.
+   * Edge case: an empty system has an empty overview rather than an error,
+   * and says so.
    *
-   * @expected 200 with no items and a total of 0.
+   * @expected 200 with no items, a total of 0 and the service's message.
    */
   it('returns an empty page when no property exists', async () => {
-    const { app } = setup({ list: async (page) => ({ items: [], total: 0, ...page }) });
+    const { app } = setup({
+      list: async (page) => ({ items: [], total: 0, ...page, message: NO_PROPERTIES_MESSAGE }),
+    });
 
     const response = await app.request('/properties');
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ items: [], total: 0, limit: 100, offset: 0 });
+    await expect(response.json()).resolves.toEqual({
+      items: [],
+      total: 0,
+      limit: 100,
+      offset: 0,
+      message: NO_PROPERTIES_MESSAGE,
+    });
   });
 
   /**
@@ -416,12 +450,13 @@ describe('GET /properties', () => {
     ['limit=1e2', 'limit', 'limit must be a whole number, e.g. 50'],
     ['limit=2.5', 'limit', 'limit must be a whole number, e.g. 50'],
     ['limit=%2010%20', 'limit', 'limit must be a whole number, e.g. 50'],
-    ['limit=10&limit=9999', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=10&limit=9999', 'limit', 'Give limit only once'],
     ['limit=0', 'limit', 'limit must be at least 1'],
     ['offset=', 'offset', 'offset must be a whole number, e.g. 100'],
     ['offset=1e20', 'offset', 'offset must be a whole number, e.g. 100'],
-    ['offset=-1', 'offset', 'offset must not be negative'],
-    ['offset=99999999999999999999', 'offset', `offset must be at most ${Number.MAX_SAFE_INTEGER}`],
+    ['offset=-1', 'offset', 'offset must be a whole number, e.g. 100'],
+    [`offset=${MAX_OFFSET + 1}`, 'offset', `offset must be at most ${MAX_OFFSET}`],
+    ['offset=99999999999999999999', 'offset', `offset must be at most ${MAX_OFFSET}`],
   ])('rejects the query %p', async (query, parameter, message) => {
     const { app } = setup();
 

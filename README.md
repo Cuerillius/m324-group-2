@@ -20,6 +20,33 @@ calling the HTTP endpoint of `locations`, never by reading its tables, and the
 database enforces that: `properties_user` has no privileges on the `locations`
 schema.
 
+## API
+
+Both services answer JSON and share the conventions below.
+
+| Method | Path             | Service    | What it does                                        |
+| ------ | ---------------- | ---------- | --------------------------------------------------- |
+| `POST` | `/locations`     | locations  | Records a locality (user story 1)                   |
+| `GET`  | `/locations`     | locations  | Pages through the localities by name (user story 2) |
+| `GET`  | `/locations/:id` | locations  | One locality, used by properties to verify ids      |
+| `POST` | `/properties`    | properties | Records a property (user story 3)                   |
+| `GET`  | `/properties`    | properties | Pages through the properties, oldest first          |
+| `GET`  | `/health`        | both       | Liveness, reports the running commit                |
+| `GET`  | `/health/ready`  | both       | Readiness, 503 while the database is down           |
+
+- **Request bodies** must be sent with `Content-Type: application/json`.
+- **Overviews** take `limit` (1 to 500, default 100) and `offset` (default 0)
+  and answer `{ items, total, limit, offset }`. When nothing is recorded at all,
+  the answer also carries a `message`. Unknown or repeated query parameters are
+  rejected rather than ignored.
+- **Errors** always use the envelope described under [Errors](#errors).
+
+```bash
+curl -X POST localhost:3001/locations -H 'Content-Type: application/json' \
+  -d '{"name":"Niederhasli","postalCode":"8155","foundingDate":"1899-05-15","population":5543}'
+curl 'localhost:3001/locations?limit=20&offset=40'
+```
+
 ## Getting started
 
 Requires Bun 1.3 and Docker. Bun is the package manager, the runtime and the
@@ -65,44 +92,69 @@ development.
 
 ## Architecture
 
-Each service is split into four layers, and dependencies only ever point inward.
+Inside `src/`, each service is split into layers, and dependencies only ever point inward.
 
 ```
-routes.ts       HTTP only. Parses input, calls the service, maps errors to status codes.
-service.ts      Business logic. A factory function that receives its dependencies.
-repository.ts   Database access through Drizzle.
-schema.ts       Drizzle table definitions and Zod validation schemas.
+<story>/routes.ts       HTTP only. Validates input, calls the service, returns JSON.
+<story>/service.ts      Business logic. A factory function that receives its dependencies.
+<story>/repository.ts   Database access through Drizzle.
+<story>/schema.ts       Zod validation schemas and the types derived from the table.
+db/schema.ts            Drizzle table definitions, the source of the migrations.
+http/validation.ts      Request body and paging validation shared by all routes.
 ```
 
 The important rule is that `service.ts` never imports Hono and never imports the
-database client. It receives a repository as a plain argument. That is what lets
-a unit test hand it a small object literal instead of a database, which is the
-isolation the assignment requires.
+database client. It receives its dependencies as plain arguments. That is what
+lets a unit test hand it small object literals instead of a database or another
+service, which is the isolation the assignment requires.
 
 ```ts
-// The shape a story author writes
-export function createLocationService(deps: { repo: LocationRepository }) {
+// The shape a story author writes (properties/service.ts, shortened)
+export function createPropertyService(deps: {
+  repo: PropertyRepository;
+  locations: LocationsClient;
+}) {
   return {
-    async create(input: NewLocation) {
-      if (await deps.repo.findByPostalCode(input.postalCode)) {
-        throw new ConflictError('A locality with this postal code already exists');
+    async create(input: NewProperty) {
+      if (!(await deps.locations.findById(input.locationId))) {
+        throw new ValidationError(INVALID_PROPERTY_MESSAGE, {
+          locationId: [`No locality with id ${input.locationId} exists`],
+        });
       }
       return deps.repo.insert(input);
     },
   };
 }
 
-// The matching unit test needs no database and no framework
-const service = createLocationService({
+// The matching unit test needs no database, no network and no framework
+const service = createPropertyService({
   repo: {
-    findByPostalCode: async () => ({ id: '1' }),
     insert: async () => {
       throw new Error('unreachable');
     },
+    findPage: async () => {
+      throw new Error('unreachable');
+    },
   },
+  locations: { findById: async () => null },
 });
-await expect(service.create(input)).rejects.toBeInstanceOf(ConflictError);
+await expect(service.create(input)).rejects.toBeInstanceOf(ValidationError);
 ```
+
+Routes validate with the helpers from `src/http/validation.ts`, so every
+endpoint reports problems the same way:
+
+```ts
+routes.get('/', pageQuery('The properties could not be listed, ...'), async (c) =>
+  c.json(await service.list(c.req.valid('query'))),
+);
+routes.post('/', jsonBody(newPropertySchema, INVALID_PROPERTY_MESSAGE), async (c) =>
+  c.json(await service.create(c.req.valid('json')), 201),
+);
+```
+
+Both services keep an identical copy of that file, because they never import
+each other's code. CI fails if the copies drift apart, so change both together.
 
 ### Errors
 
@@ -111,12 +163,15 @@ The router in `src/app.ts` is the only place that knows about status codes, and
 it maps every error onto the same response envelope:
 
 ```json
-{ "error": { "code": "CONFLICT", "message": "..." } }
+{ "error": { "code": "VALIDATION_ERROR", "message": "...", "details": { "name": ["..."] } } }
 ```
+
+`details` is only present on a 400 and lists the problems per field or query
+parameter, all at once rather than one per attempt.
 
 | Error                              | Status |
 | ---------------------------------- | ------ |
-| `ValidationError`                  | 400    |
+| `ValidationError`, malformed JSON  | 400    |
 | `NotFoundError`                    | 404    |
 | `ConflictError`                    | 409    |
 | `LocationsServiceUnavailableError` | 502    |
@@ -127,6 +182,7 @@ it maps every error onto the same response envelope:
 1. Branch off `main` as `feat/<issue-id>-<description>`.
 2. Define the table in `src/db/schema.ts`, then run `bun run --filter <service> db:generate`.
 3. Write `repository.ts`, `service.ts` and `routes.ts` in the story's own folder.
+   Validate requests with `jsonBody` and `pageQuery` from `src/http/validation.ts`.
 4. Register the router in `src/app.ts` and add whatever it needs to `AppDependencies`.
 5. Write at least two to three unit tests per endpoint covering happy and sad
    paths, documented with JSDoc as in the existing tests.
@@ -140,13 +196,13 @@ not touch the network or the database. `test/app.test.ts` and
 
 Integration tests live in `test/integration/` and run with `bun run test:integration`.
 They require a real Postgres instance and the `INTEGRATION=1` environment variable
-(plus `DATABASE_URL`). CI spins up a Postgres container, creates the roles via
-`db/init/01-init.sh`, and then creates each service's schema as that service's
-role: properties through its migrations, locations by hand until it has its own.
-Only then does it run both integration suites with the per-service credentials,
-since each one checks that it cannot reach the other service's schema.
-The integration tests only delete rows they created themselves. Unit tests (`bun test`) never run the integration suite — they are
-excluded unless `INTEGRATION=1` is set.
+(plus `DATABASE_URL`); without it they are skipped, so `bun run test` never
+touches a database. CI spins up a Postgres container, creates the roles via
+`db/init/01-init.sh`, and migrates each service as its own role, which also
+creates its schema. Only then does it run both integration suites with the
+per-service credentials, since each one checks that it cannot reach the other
+service's schema. The integration tests only delete rows they created
+themselves.
 
 ## Deployment
 
