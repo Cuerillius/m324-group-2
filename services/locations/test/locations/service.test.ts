@@ -28,7 +28,7 @@ function fakeRepo(overrides: Partial<LocationRepository> = {}): LocationReposito
       throw new Error('unreachable');
     },
     insert: async () => {
-      throw new Error('unreachable');
+      throw new ConflictError(`A locality with postal code ${input.postalCode} already exists.`);
     },
     ...overrides,
   };
@@ -62,24 +62,19 @@ describe('location service', () => {
   /**
    * Sad path: postal codes are unique (acceptance criterion 7).
    *
-   * The unique constraint is the only reliable check, so the service relies on
-   * the repository reporting the conflict.
-   *
-   * @expected the repository's ConflictError, unchanged.
+   * @expected a ConflictError naming the postal code, and no insert.
    */
   it('rejects a duplicate postal code', async () => {
     const service = createLocationService({
-      repo: fakeRepo({
-        insert: async () => {
-          throw new ConflictError('A locality with postal code 8155 already exists.');
-        },
-      }),
+      repo: fakeRepo({ findByPostalCode: async () => stored }),
     });
 
     const result = service.create(input);
 
     await expect(result).rejects.toBeInstanceOf(ConflictError);
-    await expect(result).rejects.toThrow('postal code 8155 already exists');
+    await expect(result).rejects.toThrow(
+      `A locality with postal code ${input.postalCode} already exists.`,
+    );
   });
 
   /**
