@@ -1,0 +1,29 @@
+meta {
+  name: 08 Create duplicate postal code (409)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{locationsUrl}}/locations
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Winterthur again",
+    "postalCode": "{{postalCode}}",
+    "foundingDate": "1264-06-22",
+    "population": 1
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.error.code: eq CONFLICT
+}
+
+docs {
+  Reuses the postal code from "03 Create locality". Postal codes are unique.
+}

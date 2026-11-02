@@ -1,0 +1,26 @@
+meta {
+  name: 10 List with invalid query (400)
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{locationsUrl}}/locations?limit=1000&limt=10
+  body: none
+  auth: none
+}
+
+params:query {
+  limit: 1000
+  limt: 10
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq VALIDATION_ERROR
+}
+
+docs {
+  `limit` is above the maximum of 500, and the typo `limt` is reported as an
+  unknown parameter instead of being silently ignored.
+}

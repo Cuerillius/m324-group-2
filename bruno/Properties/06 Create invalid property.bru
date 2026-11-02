@@ -1,0 +1,44 @@
+meta {
+  name: 06 Create invalid property (400)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{propertiesUrl}}/properties
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "type": "castle",
+    "roomCount": 4.25,
+    "livingArea": 120.555,
+    "locationId": "not-a-uuid",
+    "askingPrice": -1,
+    "saleDate": "2026-02-30"
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq VALIDATION_ERROR
+}
+
+tests {
+  test("reports every field at once", function () {
+    expect(Object.keys(res.body.error.details).sort()).to.deep.equal([
+      "askingPrice",
+      "livingArea",
+      "locationId",
+      "roomCount",
+      "saleDate",
+      "type",
+    ]);
+  });
+}
+
+docs {
+  Every field is wrong, so `error.details` lists a message per field.
+}

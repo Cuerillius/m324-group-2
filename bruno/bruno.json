@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "m324 Real Estate",
+  "type": "collection",
+  "ignore": ["node_modules", ".git"]
+}

@@ -1,0 +1,24 @@
+meta {
+  name: 04 List properties
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{propertiesUrl}}/properties
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+  res.body.limit: eq 100
+  res.body.offset: eq 0
+}
+
+docs {
+  Overview of all properties, oldest first. Same paging as the localities:
+  `limit` (1 to 500, default 100) and `offset` (default 0). When none exist,
+  `items` is empty and `message` says so.
+}

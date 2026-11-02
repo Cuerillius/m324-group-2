@@ -1,0 +1,25 @@
+meta {
+  name: 05 List localities
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{locationsUrl}}/locations
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+  res.body.limit: eq 100
+  res.body.offset: eq 0
+}
+
+docs {
+  **User story 2: overview of all localities.**
+
+  Without parameters the first 100 are returned. `total` counts all recorded
+  localities. When none exist, `items` is empty and `message` says so.
+}
