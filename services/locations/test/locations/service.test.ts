@@ -28,7 +28,7 @@ function fakeRepo(overrides: Partial<LocationRepository> = {}): LocationReposito
       throw new Error('unreachable');
     },
     insert: async () => {
-      throw new Error('unreachable');
+      throw new ConflictError(`A locality with postal code ${input.postalCode} already exists.`);
     },
     ...overrides,
   };
@@ -72,7 +72,7 @@ describe('location service', () => {
     const result = service.create(input);
 
     await expect(result).rejects.toBeInstanceOf(ConflictError);
-    await expect(result).rejects.toThrow('postal code 8155 already exists');
+    await expect(result).rejects.toThrow(`A locality with postal code ${input.postalCode} already exists.`);
   });
 
   /**
