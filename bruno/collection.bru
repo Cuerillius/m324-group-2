@@ -1,3 +1,8 @@
+vars:pre-request {
+  locationsUrl: http://localhost:3001
+  propertiesUrl: http://localhost:3002
+}
+
 docs {
   # m324 Real Estate
 
@@ -8,9 +13,10 @@ docs {
   | `locations`  | http://localhost:3001   | https://m324-locations.onrender.com     |
   | `properties` | http://localhost:3002   | https://m324-properties.onrender.com    |
 
-  Pick the **Local** or **Production** environment in the top right, then run
-  the requests in order. "Create locality" stores the new id and postal code in
-  runtime variables, which the later requests reuse.
+  Without an environment the requests go to localhost. Pick **Production** in
+  the top right to target Render instead, then run the requests in order.
+  "Create locality" stores the new id and postal code in runtime variables,
+  which the later requests reuse.
 
   Production runs on Render's free tier: the first request after a while can
   take up to a minute while the instance wakes up.
