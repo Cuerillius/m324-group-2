@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, spyOn } from 'bun:test';
 import { createApp } from '../../src/app.js';
 import { ConflictError } from '../../src/errors.js';
 import {
+  MAX_OFFSET,
   MAX_PAGE_SIZE,
   type Location,
   type NewLocation,
@@ -289,9 +290,19 @@ describe('GET /locations', () => {
     ['limit=1.5', 'limit', 'limit must be a whole number, e.g. 50'],
     ['limit=0', 'limit', 'limit must be at least 1'],
     [`limit=${MAX_PAGE_SIZE + 1}`, 'limit', `limit must be at most ${MAX_PAGE_SIZE}`],
-    ['offset=-1', 'offset', 'offset must not be negative'],
+    ['limit=', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=1e2', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['limit=0x10', 'limit', 'limit must be a whole number, e.g. 50'],
+    ['offset=', 'offset', 'offset must be a whole number, e.g. 100'],
+    ['offset=-1', 'offset', 'offset must be a whole number, e.g. 100'],
     ['offset=x', 'offset', 'offset must be a whole number, e.g. 100'],
+    [`offset=${MAX_OFFSET + 1}`, 'offset', `offset must be at most ${MAX_OFFSET}`],
+    ['offset=100000000000000000000', 'offset', `offset must be at most ${MAX_OFFSET}`],
+    ['limit=10&limit=9999', 'limit', 'Give limit only once'],
     ['limt=10', 'limt', 'Unknown query parameter, use limit or offset'],
+    ['constructor=1', 'constructor', 'Unknown query parameter, use limit or offset'],
+    ['toString=1', 'toString', 'Unknown query parameter, use limit or offset'],
+    ['__proto__=1', '__proto__', 'Unknown query parameter, use limit or offset'],
   ])('rejects ?%s', async (query, field, message) => {
     const { app, listed } = setup();
 
@@ -302,5 +313,50 @@ describe('GET /locations', () => {
     expect(body.error.code).toBe('VALIDATION_ERROR');
     expect(body.error.details).toEqual({ [field]: [message] });
     expect(listed).toEqual([]);
+  });
+});
+
+describe('GET /locations/:id', () => {
+  /**
+   * Sad path: an id that is not a UUID cannot belong to any locality.
+   *
+   * @expected 404 without asking the service, so the database never sees a
+   *           malformed uuid and its real errors are not mistaken for one.
+   */
+  it('answers 404 for a malformed id without a lookup', async () => {
+    let lookups = 0;
+    const { app } = setup({
+      getById: async () => {
+        lookups++;
+        return null;
+      },
+    });
+
+    const response = await app.request('/locations/not-a-uuid');
+    const body = (await response.json()) as ErrorBody;
+
+    expect(response.status).toBe(404);
+    expect(body.error.code).toBe('NOT_FOUND');
+    expect(lookups).toBe(0);
+  });
+
+  /**
+   * Sad path: a failing database is not a missing locality.
+   *
+   * @expected 500, so properties reports the locations service as unavailable
+   *           instead of claiming the locality does not exist.
+   */
+  it('lets a database failure through as 500', async () => {
+    const consoleError = spyOn(console, 'error').mockImplementation(() => {});
+    const { app } = setup({
+      getById: async () => {
+        throw new Error('connection refused');
+      },
+    });
+
+    const response = await app.request(`/locations/${stored.id}`);
+    consoleError.mockRestore();
+
+    expect(response.status).toBe(500);
   });
 });

@@ -56,6 +56,32 @@ export type NewLocation = z.infer<typeof newLocationSchema>;
 
 export const DEFAULT_PAGE_SIZE = 100;
 export const MAX_PAGE_SIZE = 500;
+/** Postgres takes OFFSET as a bigint; anything near this is a mistake anyway. */
+export const MAX_OFFSET = 2_147_483_647;
+
+/**
+ * A paging value from the query string. Only plain digits are accepted, so
+ * `1e2`, `0x10` and an empty value are rejected instead of being coerced.
+ */
+function pagingParameter(
+  name: string,
+  example: number,
+  min: number,
+  max: number,
+  fallback: number,
+) {
+  return z
+    .string()
+    .regex(/^\d+$/, `${name} must be a whole number, e.g. ${example}`)
+    .optional()
+    .transform((value) => (value === undefined ? fallback : Number(value)))
+    .pipe(
+      z
+        .number()
+        .min(min, `${name} must be at least ${min}`)
+        .max(max, `${name} must be at most ${max}`),
+    );
+}
 
 /**
  * Query parameters of the overview. The overview is paged so it stays fast no
@@ -64,17 +90,8 @@ export const MAX_PAGE_SIZE = 500;
  */
 export const listLocationsQuerySchema = z
   .object({
-    limit: z.coerce
-      .number({ invalid_type_error: 'limit must be a whole number, e.g. 50' })
-      .int('limit must be a whole number, e.g. 50')
-      .min(1, 'limit must be at least 1')
-      .max(MAX_PAGE_SIZE, `limit must be at most ${MAX_PAGE_SIZE}`)
-      .default(DEFAULT_PAGE_SIZE),
-    offset: z.coerce
-      .number({ invalid_type_error: 'offset must be a whole number, e.g. 100' })
-      .int('offset must be a whole number, e.g. 100')
-      .min(0, 'offset must not be negative')
-      .default(0),
+    limit: pagingParameter('limit', 50, 1, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE),
+    offset: pagingParameter('offset', 100, 0, MAX_OFFSET, 0),
   })
   .strict();
 

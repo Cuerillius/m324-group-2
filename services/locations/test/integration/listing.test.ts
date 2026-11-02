@@ -6,6 +6,7 @@ import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
 import { locations } from '../../src/db/schema.js';
 import { createLocationRepository } from '../../src/locations/repository.js';
 import { createLocationService, NO_LOCATIONS_MESSAGE } from '../../src/locations/service.js';
+import { disposableLocations } from './disposable.js';
 
 const INTEGRATION = process.env.INTEGRATION;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -22,6 +23,7 @@ interface Page {
 
 describe.skipIf(!INTEGRATION)('listing localities (integration)', () => {
   const db = createDatabase(DATABASE_URL!);
+  const table = disposableLocations(db);
   const app = createApp({
     version: 'test',
     checkDatabase: createDatabaseCheck(db),
@@ -31,14 +33,15 @@ describe.skipIf(!INTEGRATION)('listing localities (integration)', () => {
   beforeAll(async () => {
     const migrationsFolder = new URL('../../drizzle', import.meta.url).pathname;
     await migrate(db, { migrationsFolder, migrationsSchema: 'locations_drizzle' });
+    await table.verify();
   });
 
   beforeEach(async () => {
-    await db.delete(locations);
+    await table.clear();
   });
 
   afterAll(async () => {
-    await db.delete(locations);
+    await table.clear();
     await db.$client.end({ timeout: 5 });
   });
 
@@ -61,14 +64,16 @@ describe.skipIf(!INTEGRATION)('listing localities (integration)', () => {
       { name: 'Zürich', postalCode: '8001', foundingDate: '1351-05-01', population: 421878 },
       { name: 'Bülach', postalCode: '8180', foundingDate: '1384-01-01', population: 22000 },
       { name: 'Niederhasli', postalCode: '8155', foundingDate: '1899-05-15', population: 5543 },
+      { name: 'Ägeri', postalCode: '6315', foundingDate: '1803-01-01', population: 4000 },
     ]);
 
     const first = await list('?limit=2');
     const second = await list('?limit=2&offset=2');
 
-    expect(first.total).toBe(3);
-    expect(first.items.map((l) => l.name)).toEqual(['Bülach', 'Niederhasli']);
-    expect(second.items.map((l) => l.name)).toEqual(['Zürich']);
+    // Umlauts sort with their base letter, not after Z.
+    expect(first.total).toBe(4);
+    expect(first.items.map((l) => l.name)).toEqual(['Ägeri', 'Bülach']);
+    expect(second.items.map((l) => l.name)).toEqual(['Niederhasli', 'Zürich']);
     expect(first.message).toBeUndefined();
   });
 
@@ -78,7 +83,7 @@ describe.skipIf(!INTEGRATION)('listing localities (integration)', () => {
       // empty table, so this proves the index fits the ORDER BY, not its speed.
       await tx.execute(sql`SET LOCAL enable_seqscan = off`);
       return tx.execute<{ 'QUERY PLAN': string }>(
-        sql`EXPLAIN SELECT * FROM locations.locations ORDER BY name, postal_code LIMIT 100`,
+        sql`EXPLAIN SELECT * FROM locations.locations ORDER BY name COLLATE "de-CH-x-icu", postal_code LIMIT 100`,
       );
     });
 

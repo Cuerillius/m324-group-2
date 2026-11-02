@@ -1,1 +1,1 @@
-CREATE INDEX "locations_name_postal_code_idx" ON "locations"."locations" USING btree ("name","postal_code");
+CREATE INDEX "locations_name_postal_code_idx" ON "locations"."locations" USING btree ("name" collate "de-CH-x-icu","postal_code");

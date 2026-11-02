@@ -1,19 +1,23 @@
 import { Hono } from 'hono';
-import type { ZodError } from 'zod';
+import { z, type ZodError } from 'zod';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { listLocationsQuerySchema, newLocationSchema } from './schema.js';
 import type { LocationService } from './service.js';
+
+const uuidSchema = z.string().uuid();
 
 // location controller, mounted under `/locations`.
 export function createLocationRoutes(service: LocationService) {
   const routes = new Hono();
 
   routes.get('/', async (c) => {
+    const query = c.req.queries();
+    const repeated = Object.keys(query).filter((name) => query[name]!.length > 1);
     const parsed = listLocationsQuerySchema.safeParse(c.req.query());
-    if (!parsed.success) {
+    if (repeated.length > 0 || !parsed.success) {
       throw new ValidationError(
         'The localities could not be listed, please correct the query parameters',
-        queryErrorDetails(parsed.error),
+        queryErrorDetails(repeated, parsed.error),
       );
     }
     return c.json(await service.list(parsed.data));
@@ -21,6 +25,11 @@ export function createLocationRoutes(service: LocationService) {
 
   routes.get('/:id', async (c) => {
     const id = c.req.param('id');
+    // No locality can have an id that is not a UUID, and Postgres would reject
+    // it as a uuid anyway. Checking here lets real database errors surface.
+    if (!uuidSchema.safeParse(id).success) {
+      throw new NotFoundError('Location not found.');
+    }
     const services = await service.getById(id);
     if (services != null) {
       return c.json(services, 200);
@@ -64,15 +73,18 @@ export function createLocationRoutes(service: LocationService) {
  * Groups the errors by query parameter. Unknown parameters are reported under
  * their own name, which `flatten()` would lump into a nameless form error.
  */
-function queryErrorDetails(error: ZodError): Record<string, string[]> {
-  const details: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const entries =
-      issue.code === 'unrecognized_keys'
-        ? issue.keys.map((key) => [key, 'Unknown query parameter, use limit or offset'])
-        : [[issue.path.join('.'), issue.message]];
-    for (const [key, message] of entries) {
-      (details[key!] ??= []).push(message!);
+function queryErrorDetails(repeated: string[], error?: ZodError): Record<string, string[]> {
+  // No prototype, so parameters named like `constructor` or `toString` are
+  // ordinary keys instead of inherited members.
+  const details: Record<string, string[]> = Object.create(null);
+  const add = (name: string, message: string) => (details[name] ??= []).push(message);
+
+  for (const name of repeated) add(name, `Give ${name} only once`);
+  for (const issue of error?.issues ?? []) {
+    if (issue.code === 'unrecognized_keys') {
+      for (const key of issue.keys) add(key, 'Unknown query parameter, use limit or offset');
+    } else if (!repeated.includes(issue.path.join('.'))) {
+      add(issue.path.join('.'), issue.message);
     }
   }
   return details;

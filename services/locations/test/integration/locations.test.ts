@@ -2,10 +2,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createApp } from '../../src/app.js';
 import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
-import { locations } from '../../src/db/schema.js';
 import { ConflictError } from '../../src/errors.js';
 import { createLocationRepository } from '../../src/locations/repository.js';
 import { createLocationService } from '../../src/locations/service.js';
+import { disposableLocations } from './disposable.js';
 
 const INTEGRATION = process.env.INTEGRATION;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -23,6 +23,7 @@ const niederhasli = {
 
 describe.skipIf(!INTEGRATION)('recording localities (integration)', () => {
   const db = createDatabase(DATABASE_URL!);
+  const table = disposableLocations(db);
   const repo = createLocationRepository(db);
   const app = createApp({
     version: 'test',
@@ -35,14 +36,15 @@ describe.skipIf(!INTEGRATION)('recording localities (integration)', () => {
     // generated migration applies as locations_user.
     const migrationsFolder = new URL('../../drizzle', import.meta.url).pathname;
     await migrate(db, { migrationsFolder, migrationsSchema: 'locations_drizzle' });
+    await table.verify();
   });
 
   beforeEach(async () => {
-    await db.delete(locations);
+    await table.clear();
   });
 
   afterAll(async () => {
-    await db.delete(locations);
+    await table.clear();
     await db.$client.end({ timeout: 5 });
   });
 
