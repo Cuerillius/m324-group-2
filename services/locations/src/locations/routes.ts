@@ -10,12 +10,12 @@ export function createLocationRoutes(service: LocationService) {
   routes.get('/', async (c) => c.json(await service.list()));
 
   routes.get('/:id', async (c) => {
-    const id = c.req.param('id')
-    const services = await service.getById(id)
-    if (services != null){
-      return c.json(services, 200)
+    const id = c.req.param('id');
+    const services = await service.getById(id);
+    if (services != null) {
+      return c.json(services, 200);
     } else {
-      throw new NotFoundError("Location not found.");
+      throw new NotFoundError('Location not found.');
     }
   });
 
@@ -42,7 +42,6 @@ export function createLocationRoutes(service: LocationService) {
         details,
       );
     }
-
 
     const location = await service.create(parsed.data);
     return c.json(location, 201, { Location: `/locations/${location.id}` });

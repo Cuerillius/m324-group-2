@@ -7,7 +7,11 @@ const MAX_POPULATION = 2_147_483_647;
 
 function isCalendarDate(value: string): boolean {
   const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value) && parsed.getFullYear() >= 1;
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().startsWith(value) &&
+    parsed.getFullYear() >= 1
+  );
 }
 
 export const newLocationSchema = z.object({

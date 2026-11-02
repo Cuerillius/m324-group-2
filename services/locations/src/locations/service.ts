@@ -16,6 +16,6 @@ export function createLocationService(deps: { repo: LocationRepository }) {
 
     async getById(id: string): Promise<Location | null> {
       return deps.repo.findById(id);
-    }
+    },
   };
 }

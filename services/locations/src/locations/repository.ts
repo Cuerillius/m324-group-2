@@ -7,16 +7,16 @@ import type { Location, NewLocation } from './schema.js';
 
 export interface LocationRepository {
   findByPostalCode(postalCode: string): Promise<Location | null>;
-  findById(id : string): Promise<Location | null>;
+  findById(id: string): Promise<Location | null>;
   findAll(): Promise<Location[]>;
   insert(input: NewLocation): Promise<Location>;
 }
 
 function isPostalCodeConflict(err: unknown): boolean {
-  if (err instanceof postgres.PostgresError){
-    return err.constraint_name == "locations_postal_code_unique"
+  if (err instanceof postgres.PostgresError) {
+    return err.constraint_name == 'locations_postal_code_unique';
   } else {
-    return false
+    return false;
   }
 }
 
@@ -46,12 +46,12 @@ export function createLocationRepository(db: Database): LocationRepository {
       return db.select().from(locations).orderBy(asc(locations.name), asc(locations.postalCode));
     },
 
-    async findById(id : string){
+    async findById(id: string) {
       try {
         const [row] = await db.select().from(locations).where(eq(locations.id, id)).limit(1);
-        return row ?? null
+        return row ?? null;
       } catch {
-        return null
+        return null;
       }
     },
 
@@ -61,7 +61,9 @@ export function createLocationRepository(db: Database): LocationRepository {
         return row!;
       } catch (err) {
         if (isPostalCodeConflict(err)) {
-          throw new ConflictError(`A locality with postal code ${input.postalCode} already exists.`);
+          throw new ConflictError(
+            `A locality with postal code ${input.postalCode} already exists.`,
+          );
         }
         if (isUniqueViolation(err)) {
           throw new ConflictError(`A unique constraint has been violated.`);

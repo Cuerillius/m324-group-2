@@ -32,7 +32,7 @@ function setup(overrides: Partial<LocationService> = {}) {
       return stored;
     },
     getById: async (id: string) => {
-      const found = [stored].find(t => t.id == id);
+      const found = [stored].find((t) => t.id == id);
       return found ?? null;
     },
     list: async () => [stored],
