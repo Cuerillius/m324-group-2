@@ -1,7 +1,7 @@
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createDatabase, createDatabaseCheck } from './db/client.js';
+import { runMigrations } from './db/migrate.js';
 import { createLocationRepository } from './locations/repository.js';
 import { createLocationService } from './locations/service.js';
 
@@ -10,9 +10,9 @@ const db = createDatabase(config.DATABASE_URL);
 
 // Pending migrations run before the server listens, so a deploy only passes the
 // health check once the schema matches the code. Render's free plan has no
-// pre-deploy step to do this separately.
-const migrationsFolder = new URL('../drizzle', import.meta.url).pathname;
-await migrate(db, { migrationsFolder, migrationsSchema: 'locations_drizzle' });
+// pre-deploy step to do this separately. A migration that hangs fails startup
+// after a deadline instead of silently blocking the port, see db/migrate.ts.
+await runMigrations(db, { migrationsSchema: 'locations_drizzle' });
 
 const app = createApp({
   version: config.RENDER_GIT_COMMIT,
