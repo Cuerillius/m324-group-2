@@ -1,17 +1,20 @@
 import { z } from 'zod';
 import type { locations } from '../db/schema.js';
+import { isCalendarDate, type Page } from '../http/validation.js';
 
 export type Location = typeof locations.$inferSelect;
 
+export type LocationPage = Page<Location>;
+
 const MAX_POPULATION = 2_147_483_647;
 
-function isCalendarDate(value: string): boolean {
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return (
-    !Number.isNaN(parsed.getTime()) &&
-    parsed.toISOString().startsWith(value) &&
-    parsed.getFullYear() >= 1
-  );
+/** Top-level message of every rejected locality, the field details say what to fix. */
+export const INVALID_LOCATION_MESSAGE =
+  'The locality could not be saved, please correct the marked fields';
+
+/** Today in Switzerland as YYYY-MM-DD, so a founding date compares as a string. */
+function todayInZurich(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Zurich' });
 }
 
 export const newLocationSchema = z.object({
@@ -37,7 +40,7 @@ export const newLocationSchema = z.object({
         ? 'Founding date must use the format YYYY-MM-DD, e.g. "1899-05-15"'
         : !isCalendarDate(value)
           ? 'Founding date must be a day that exists, e.g. "1899-05-15"'
-          : value > new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Zurich' })
+          : value > todayInZurich()
             ? 'Founding date must not be in the future'
             : null;
       if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
@@ -53,54 +56,3 @@ export const newLocationSchema = z.object({
 });
 
 export type NewLocation = z.infer<typeof newLocationSchema>;
-
-export const DEFAULT_PAGE_SIZE = 100;
-export const MAX_PAGE_SIZE = 500;
-/** Postgres takes OFFSET as a bigint; anything near this is a mistake anyway. */
-export const MAX_OFFSET = 2_147_483_647;
-
-/**
- * A paging value from the query string. Only plain digits are accepted, so
- * `1e2`, `0x10` and an empty value are rejected instead of being coerced.
- */
-function pagingParameter(
-  name: string,
-  example: number,
-  min: number,
-  max: number,
-  fallback: number,
-) {
-  return z
-    .string()
-    .regex(/^\d+$/, `${name} must be a whole number, e.g. ${example}`)
-    .optional()
-    .transform((value) => (value === undefined ? fallback : Number(value)))
-    .pipe(
-      z
-        .number()
-        .min(min, `${name} must be at least ${min}`)
-        .max(max, `${name} must be at most ${max}`),
-    );
-}
-
-/**
- * Query parameters of the overview. The overview is paged so it stays fast no
- * matter how many localities are recorded; unknown parameters are rejected so
- * a typo like `?limt=10` is reported instead of silently ignored.
- */
-export const listLocationsQuerySchema = z
-  .object({
-    limit: pagingParameter('limit', 50, 1, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE),
-    offset: pagingParameter('offset', 100, 0, MAX_OFFSET, 0),
-  })
-  .strict();
-
-export type PageRequest = z.infer<typeof listLocationsQuerySchema>;
-
-export interface LocationPage extends PageRequest {
-  items: Location[];
-  /** Number of recorded localities, independent of the page. */
-  total: number;
-  /** Only present when no locality is recorded at all. */
-  message?: string;
-}

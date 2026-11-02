@@ -6,7 +6,7 @@ import {
 } from '../../src/locations-client.js';
 import type { PropertyRepository } from '../../src/properties/repository.js';
 import type { NewProperty, Property } from '../../src/properties/schema.js';
-import { createPropertyService } from '../../src/properties/service.js';
+import { createPropertyService, NO_PROPERTIES_MESSAGE } from '../../src/properties/service.js';
 
 const locationId = '7c9e6679-7425-40de-944b-e07fc1f2b8b4';
 
@@ -135,5 +135,42 @@ describe('property service', () => {
       offset: 6,
     });
     expect(pages).toEqual([{ limit: 1, offset: 6 }]);
+  });
+
+  /**
+   * Edge case: an empty system says so instead of only returning nothing.
+   *
+   * @expected an empty page with a total of 0 and the "nothing recorded" message.
+   */
+  it('explains an empty overview', async () => {
+    const service = createPropertyService({
+      repo: fakeRepo({ findPage: async () => ({ items: [], total: 0 }) }),
+      locations: knownLocality,
+    });
+
+    await expect(service.list({ limit: 100, offset: 0 })).resolves.toEqual({
+      items: [],
+      total: 0,
+      limit: 100,
+      offset: 0,
+      message: NO_PROPERTIES_MESSAGE,
+    });
+  });
+
+  /**
+   * Edge case: paging past the end is not the same as an empty system.
+   *
+   * @expected no items and no message, because properties do exist.
+   */
+  it('omits the message when only the page is empty', async () => {
+    const service = createPropertyService({
+      repo: fakeRepo({ findPage: async () => ({ items: [], total: 3 }) }),
+      locations: knownLocality,
+    });
+
+    const page = await service.list({ limit: 100, offset: 300 });
+
+    expect(page.items).toEqual([]);
+    expect(page).not.toHaveProperty('message');
   });
 });

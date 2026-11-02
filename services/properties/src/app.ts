@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { NotFoundError, ValidationError, ConflictError } from './errors.js';
+import { ConflictError, NotFoundError, ValidationError } from './errors.js';
 import { LocationsServiceUnavailableError } from './locations-client.js';
 import { createPropertyRoutes } from './properties/routes.js';
 import type { PropertyService } from './properties/service.js';

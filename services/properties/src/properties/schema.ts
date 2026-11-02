@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { properties } from '../db/schema.js';
+import { isCalendarDate, type Page } from '../http/validation.js';
 
 export type Property = typeof properties.$inferSelect;
 
@@ -12,13 +13,6 @@ export const INVALID_PROPERTY_MESSAGE =
 /** True for a number with at most two decimal places, e.g. 120.25. */
 function hasAtMostTwoDecimals(value: number): boolean {
   return Math.round(value * 100) / 100 === value;
-}
-
-/** True for a YYYY-MM-DD string that names a real day Postgres can store. */
-function isCalendarDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '0001-01-01') return false;
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
 }
 
 export const newPropertySchema = z.object({
@@ -65,51 +59,4 @@ export const newPropertySchema = z.object({
 
 export type NewProperty = z.infer<typeof newPropertySchema>;
 
-export const DEFAULT_PAGE_SIZE = 100;
-export const MAX_PAGE_SIZE = 500;
-
-/**
- * A whole number in the query string. Plain digits only, because `Number()` on
- * its own would also accept an empty value, `0x10` and `1e2`.
- */
-function wholeNumberParam(message: string) {
-  return z
-    .string({ invalid_type_error: message })
-    .regex(/^-?\d+$/, message)
-    .transform(Number);
-}
-
-/**
- * Query parameters of the overview, the same as for localities. The overview is
- * paged so it stays fast no matter how many properties are recorded; unknown
- * parameters are rejected so a typo like `?limt=10` is reported. The offset has
- * an upper bound so a huge value is a 400 here, not a 500 from Postgres.
- */
-export const listPropertiesQuerySchema = z
-  .object({
-    limit: wholeNumberParam('limit must be a whole number, e.g. 50')
-      .pipe(
-        z
-          .number()
-          .min(1, 'limit must be at least 1')
-          .max(MAX_PAGE_SIZE, `limit must be at most ${MAX_PAGE_SIZE}`),
-      )
-      .default(String(DEFAULT_PAGE_SIZE)),
-    offset: wholeNumberParam('offset must be a whole number, e.g. 100')
-      .pipe(
-        z
-          .number()
-          .min(0, 'offset must not be negative')
-          .max(Number.MAX_SAFE_INTEGER, `offset must be at most ${Number.MAX_SAFE_INTEGER}`),
-      )
-      .default('0'),
-  })
-  .strict();
-
-export type PageRequest = z.infer<typeof listPropertiesQuerySchema>;
-
-export interface PropertyPage extends PageRequest {
-  items: Property[];
-  /** Number of recorded properties, independent of the page. */
-  total: number;
-}
+export type PropertyPage = Page<Property>;

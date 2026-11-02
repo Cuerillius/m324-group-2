@@ -1,7 +1,8 @@
 import { asc } from 'drizzle-orm';
 import type { Database } from '../db/client.js';
 import { properties } from '../db/schema.js';
-import type { NewProperty, PageRequest, Property } from './schema.js';
+import type { PageRequest } from '../http/validation.js';
+import type { NewProperty, Property } from './schema.js';
 
 export interface PropertyRepository {
   insert(input: NewProperty): Promise<Property>;
@@ -17,18 +18,23 @@ export function createPropertyRepository(db: Database): PropertyRepository {
     },
 
     async findPage({ limit, offset }) {
-      // Ids are unique, so ordering by them too keeps pages stable when two
-      // properties share a creation timestamp.
-      const [items, total] = await Promise.all([
-        db
-          .select()
-          .from(properties)
-          .orderBy(asc(properties.createdAt), asc(properties.id))
-          .limit(limit)
-          .offset(offset),
-        db.$count(properties),
-      ]);
-      return { items, total };
+      // One snapshot for both queries, so a concurrent insert cannot produce a
+      // populated page next to a total of 0.
+      return db.transaction(
+        async (tx) => {
+          // Ids are unique, so ordering by them too keeps pages stable when two
+          // properties share a creation timestamp.
+          const items = await tx
+            .select()
+            .from(properties)
+            .orderBy(asc(properties.createdAt), asc(properties.id))
+            .limit(limit)
+            .offset(offset);
+          const total = await tx.$count(properties);
+          return { items, total };
+        },
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      );
     },
   };
 }
