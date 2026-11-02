@@ -24,6 +24,9 @@ function fakeRepo(overrides: Partial<LocationRepository> = {}): LocationReposito
     findAll: async () => {
       throw new Error('unreachable');
     },
+    findById : async () => {
+      throw new Error('unreachable');
+    },
     insert: async () => {
       throw new Error('unreachable');
     },

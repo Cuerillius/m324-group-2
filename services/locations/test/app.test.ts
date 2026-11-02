@@ -7,6 +7,9 @@ const locationService: LocationService = {
   create: async () => {
     throw new Error('unreachable');
   },
+  getById: async () => {
+    throw new Error('unreachable');
+  },
   list: async () => {
     throw new Error('unreachable');
   },
@@ -32,7 +35,7 @@ describe('locations app', () => {
     const response = await app.request('/health');
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    expect(response.json()).resolves.toEqual({
       status: 'ok',
       service: 'locations',
       version: 'test',
