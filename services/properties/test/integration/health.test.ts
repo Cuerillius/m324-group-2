@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { sql } from 'drizzle-orm';
 import { createApp } from '../../src/app.js';
 import { createDatabase, createDatabaseCheck } from '../../src/db/client.js';
+import { unusedPropertyService as propertyService } from '../stubs.js';
 
 const INTEGRATION = process.env.INTEGRATION;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -12,7 +13,11 @@ if (INTEGRATION && !DATABASE_URL) {
 
 describe.skipIf(!INTEGRATION)('properties health (integration)', () => {
   const db = createDatabase(DATABASE_URL!);
-  const app = createApp({ version: 'test', checkDatabase: createDatabaseCheck(db) });
+  const app = createApp({
+    version: 'test',
+    propertyService,
+    checkDatabase: createDatabaseCheck(db),
+  });
 
   afterAll(async () => {
     await db.$client.end({ timeout: 5 });

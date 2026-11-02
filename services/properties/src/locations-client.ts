@@ -14,6 +14,14 @@ const locationSchema = z.object({
 
 export type Location = z.infer<typeof locationSchema>;
 
+/** The error envelope microservice 1 sends with a 404. */
+const notFoundSchema = z.object({
+  error: z.object({ code: z.literal('NOT_FOUND'), message: z.string() }),
+});
+
+/** What microservice 1 says for a path it has no route for. */
+const ROUTE_NOT_FOUND_MESSAGE = 'Route not found';
+
 /**
  * The contract user story 3 depends on.
  *
@@ -64,7 +72,16 @@ export function createHttpLocationsClient(options: HttpLocationsClientOptions): 
         );
       }
 
-      if (response.status === 404) return null;
+      if (response.status === 404) {
+        // Microservice 1 answers 404 both for an unknown locality and for a
+        // route it does not have (e.g. an older version without GET /:id).
+        // Only the first one means the locality does not exist.
+        const body = notFoundSchema.safeParse(await response.json().catch(() => undefined));
+        if (body.success && body.data.error.message !== ROUTE_NOT_FOUND_MESSAGE) return null;
+        throw new LocationsServiceUnavailableError(
+          'Locations service does not offer GET /locations/:id',
+        );
+      }
       if (!response.ok) {
         throw new LocationsServiceUnavailableError(
           `Locations service answered with status ${response.status}`,

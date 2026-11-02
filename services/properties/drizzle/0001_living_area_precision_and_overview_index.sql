@@ -1,0 +1,2 @@
+ALTER TABLE "properties"."properties" ALTER COLUMN "living_area" SET DATA TYPE double precision;--> statement-breakpoint
+CREATE INDEX "properties_created_at_id_idx" ON "properties"."properties" USING btree ("created_at","id");

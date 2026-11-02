@@ -141,8 +141,11 @@ not touch the network or the database. `test/app.test.ts` and
 Integration tests live in `test/integration/` and run with `bun run test:integration`.
 They require a real Postgres instance and the `INTEGRATION=1` environment variable
 (plus `DATABASE_URL`). CI spins up a Postgres container, creates the roles via
-`db/init/01-init.sh` and each service's schema as that service's role, and then runs both integration suites with the per-service
-credentials. Unit tests (`bun test`) never run the integration suite — they are
+`db/init/01-init.sh`, and then creates each service's schema as that service's
+role: properties through its migrations, locations by hand until it has its own.
+Only then does it run both integration suites with the per-service credentials,
+since each one checks that it cannot reach the other service's schema.
+The integration tests only delete rows they created themselves. Unit tests (`bun test`) never run the integration suite — they are
 excluded unless `INTEGRATION=1` is set.
 
 ## Deployment

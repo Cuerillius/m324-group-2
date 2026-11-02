@@ -1,16 +1,20 @@
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { NotFoundError, ValidationError, ConflictError } from './errors.js';
 import { LocationsServiceUnavailableError } from './locations-client.js';
+import { createPropertyRoutes } from './properties/routes.js';
+import type { PropertyService } from './properties/service.js';
 
 /**
- * Dependencies the HTTP layer needs. User story 3 extends this type with its
- * own service, which is how the routes stay free of construction logic.
+ * Dependencies the HTTP layer needs. Each user story adds its own service here,
+ * which is how the routes stay free of construction logic.
  */
 export interface AppDependencies {
   /** Identifies the running build, so a smoke test can tell which one is live. */
   version: string;
   /** Reports whether the database is reachable. */
   checkDatabase: () => Promise<boolean>;
+  propertyService: PropertyService;
 }
 
 /**
@@ -33,12 +37,24 @@ export function createApp(deps: AppDependencies) {
     );
   });
 
-  // Register user story routes here, e.g.
-  // app.route('/properties', createPropertyRoutes(deps.propertyService));
+  app.route('/properties', createPropertyRoutes(deps.propertyService));
 
   app.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404));
 
   app.onError((err, c) => {
+    // Hono's validator throws this for a body that is not valid JSON.
+    if (err instanceof HTTPException && err.status === 400) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Request body must be valid JSON',
+            details: {},
+          },
+        },
+        400,
+      );
+    }
     if (err instanceof ValidationError) {
       return c.json({ error: { code: err.code, message: err.message, details: err.details } }, 400);
     }
