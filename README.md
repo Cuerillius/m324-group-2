@@ -225,6 +225,13 @@ Each service applies its pending Drizzle migrations on startup, before it
 listens. A migration must therefore stay compatible with the previous release,
 because a rollback redeploys old code onto the new schema.
 
+Startup gives migrations two minutes (`src/db/migrate.ts`). One that takes
+longer is almost always waiting for a lock another session holds, such as a
+database GUI or a `drizzle-kit` command left open against Neon. The service
+then cancels its waiting statement and exits with a `MigrationTimeoutError`
+naming the session that holds the lock, instead of hanging until Render gives
+up with "no open ports detected". Close that session and redeploy.
+
 Secrets live in Render (`DATABASE_URL`, `LOCATIONS_SERVICE_URL`) and in the
 GitHub `production` environment (`RENDER_API_KEY`), never in the repository.
 `db/neon-setup.sh` creates the service roles on a fresh Neon database.
